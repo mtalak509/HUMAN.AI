@@ -17,6 +17,7 @@ htmlcov/
 
 # Virtual environments
 .venv/
+.ven-win/
 venv/
 env/
 ENV/
@@ -63,3 +64,10 @@ qdrant_storage/
 
 # Redis
 dump.rdb
+
+# Project docs (local only)
+CLAUDE.md
+core_architecture.md
+
+# .claude
+.claude/
