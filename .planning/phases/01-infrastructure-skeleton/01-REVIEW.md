@@ -1,5 +1,91 @@
 ---
 phase: 01-infrastructure-skeleton
+reviewed: 2026-05-03T16:53:00Z
+depth: standard
+files_reviewed: 9
+files_reviewed_list:
+  - api/main.py
+  - api/__init__.py
+  - core/config.py
+  - core/logger.py
+  - core/graph.py
+  - Dockerfile
+  - docker-compose.yml
+  - .env.example
+  - .gitignore
+findings:
+  critical: 0
+  warning: 4
+  info: 0
+  total: 4
+status: issues_found
+---
+
+# Phase 01: Code Review Report
+
+**Reviewed:** 2026-05-03T16:53:00Z
+**Depth:** standard
+**Files Reviewed:** 9
+**Status:** issues_found
+
+## Summary
+
+Focused review covered the provided phase files, excluding planning summaries from issue scoring because they are non-source artifacts. No high-severity defects were confirmed, but there are several medium/low risks around retry edge cases, credential defaults, observability, and missing regression tests.
+
+## Warnings
+
+### WR-01 [medium]: Retry logic fails on empty `delays`
+
+**File:** `core/graph.py:53`
+**Issue:** `connect_with_retry()` accepts `delays: list[int] | None`, but if callers pass an empty list, `delays[-1]` raises `IndexError` inside error handling. This can short-circuit retry flow unexpectedly.
+**Fix:**
+```python
+if delays is None or len(delays) == 0:
+    delays = [1, 3, 9]
+...
+delay = delays[attempt - 1] if attempt - 1 < len(delays) else delays[-1]
+```
+
+### WR-02 [medium]: Weak default Neo4j password fallback
+
+**File:** `docker-compose.yml:8`
+**Issue:** `NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-changeme}` allows deployment with a known weak credential when env configuration is missing, creating avoidable security risk.
+**Fix:**
+```yaml
+environment:
+  NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?Set NEO4J_PASSWORD in .env}
+```
+Also set a non-trivial sample in `.env.example` and document rotation for local/prod parity.
+
+### WR-03 [low]: Health check suppresses DB exception details
+
+**File:** `api/main.py:63-67`
+**Issue:** `/health` catches all exceptions and returns degraded status without logging. Operationally, this hides root-cause signals (auth failure vs network vs query error), slowing incident triage and masking behavioral regressions.
+**Fix:**
+```python
+except Exception as exc:
+    logger.warning("Health check ping failed: {}", exc)
+    return {"status": "degraded", "neo4j": "unavailable"}
+```
+Prefer catching expected Neo4j connectivity exceptions explicitly, with a final fallback handler.
+
+### WR-04 [medium]: Missing regression tests for startup/degraded behavior
+
+**File:** `api/main.py:11-67`, `core/graph.py:27-94`
+**Issue:** No tests were found for lifespan startup/shutdown, degraded startup on Neo4j failure, `GraphDB.connect_with_retry()` retry edge cases, or `/health` behavior transitions. These are behavior-critical paths and likely regression points.
+**Fix:** Add pytest coverage for:
+- startup when Neo4j is available vs unavailable (assert `is_connected` and health payload),
+- retry backoff behavior and empty-delay guard,
+- shutdown calling `db.close()` safely,
+- `/health` returning degraded when `ping()` raises.
+
+---
+
+_Reviewed: 2026-05-03T16:53:00Z_
+_Reviewer: Claude (gsd-code-reviewer)_
+_Depth: standard_
+---
+phase: 01-infrastructure-skeleton
 reviewed: 2026-05-03T00:00:00Z
 depth: standard
 files_reviewed: 10
