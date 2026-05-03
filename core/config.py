@@ -10,13 +10,16 @@ class Settings(BaseSettings):
     Все поля обязательны к заданию (пустых значений нет) кроме neo4j_password.
     """
 
+    # Graph DB (per D-07)
     neo4j_uri: str = Field(default="bolt://localhost:7687", description="Neo4j Bolt URI")
     neo4j_user: str = Field(default="neo4j", description="Neo4j username")
     neo4j_password: str = Field(description="Neo4j password — обязательно в .env")
 
+    # Vector store
     qdrant_url: str = Field(default="http://localhost:6333", description="Qdrant REST URL")
     redis_url: str = Field(default="redis://localhost:6379", description="Redis connection URL")
 
+    # logging
     log_level: str = Field(
         default="INFO",
         description="Loguru log level: TRACE/DEBUG/INFO/WARNING/ERROR",
