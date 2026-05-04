@@ -39,4 +39,4 @@ def get_settings() -> Settings:
     Возвращает кэшированный экземпляр Settings (per D-08).
     Кэш сбрасывается через get_settings.cache_clear() в тестах.
     """
-    return Settings()
+    return Settings()  # type: ignore[call-arg]  # env/.env supply required secrets at runtime
