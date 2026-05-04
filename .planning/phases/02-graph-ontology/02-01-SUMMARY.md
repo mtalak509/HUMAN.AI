@@ -53,7 +53,7 @@ Each task was committed atomically:
 
 1. **Task 1: Implement core/models.py — all 12 node models** - `8282e32` (feat)
 
-**Plan metadata:** pending final docs commit
+**Plan metadata:** `25d48c5` (docs)
 
 ## Verification Outcomes
 
@@ -111,9 +111,10 @@ None - no external service configuration required.
 
 None.
 
-## Self-Check: PENDING
+## Self-Check: PASSED
 
-- Pending existence/hash validation and final docs commit update.
+- FOUND: `.planning/phases/02-graph-ontology/02-01-SUMMARY.md`
+- FOUND: `8282e32` task commit in git history
 
 ---
 *Phase: 02-graph-ontology*
