@@ -14,7 +14,7 @@
 
 ### Онтология
 
-- [ ] **ONTO-01**: Все 12 типов узлов онтологии описаны как Pydantic BaseModel в `core/models.py`: Candidate, Contact, Skill, Role, Company, Experience, Education, Vacancy, Status, HRNote, Document, Fact — с полями из `core_architecture.md` раздел 4.2
+- [x] **ONTO-01**: Все 12 типов узлов онтологии описаны как Pydantic BaseModel в `core/models.py`: Candidate, Contact, Skill, Role, Company, Experience, Education, Vacancy, Status, HRNote, Document, Fact — с полями из `core_architecture.md` раздел 4.2
 - [ ] **ONTO-02**: Скрипт миграции `scripts/migrate.py` применяет к Neo4j все constraints (уникальность ключевых полей) и indexes (быстрый поиск) — идемпотентный, безопасен для повторного запуска
 - [ ] **ONTO-03**: `core/graph.py` предоставляет async Neo4j driver, метод ping(), context-manager для сессий — используется миграцией и будущими компонентами
 
@@ -64,7 +64,7 @@
 | INFRA-03 | Фаза 1 | Инфраструктурный скелет | Ожидание |
 | INFRA-04 | Фаза 1 | Инфраструктурный скелет | Ожидание |
 | ONTO-03 | Фаза 1 | Инфраструктурный скелет | Ожидание |
-| ONTO-01 | Фаза 2 | Онтология графа | Ожидание |
+| ONTO-01 | Фаза 2 | Онтология графа | Выполнено |
 | ONTO-02 | Фаза 2 | Онтология графа | Ожидание |
 | SEED-01 | Фаза 3 | Тестовые данные и eval | Ожидание |
 | SEED-02 | Фаза 3 | Тестовые данные и eval | Ожидание |
