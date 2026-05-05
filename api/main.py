@@ -1,15 +1,18 @@
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import cast
 
 from fastapi import Depends, FastAPI, Request
 from loguru import logger
 
-from core.config import Settings, get_settings as _get_settings
-from core.graph import GraphDB
+from core.config import Settings
+from core.config import get_settings as _get_settings
+from core.database.graph import GraphDB
 from core.logger import setup_logging
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = _get_settings()
     app.state.settings = settings
 
@@ -48,15 +51,15 @@ app = FastAPI(title="HUMAN.AI", version="0.1.0", lifespan=lifespan)
 
 
 def get_settings(request: Request) -> Settings:
-    return request.app.state.settings
+    return cast(Settings, request.app.state.settings)
 
 
 def get_db(request: Request) -> GraphDB:
-    return request.app.state.db
+    return cast(GraphDB, request.app.state.db)
 
 
 @app.get("/health")
-async def health(db: GraphDB = Depends(get_db)) -> dict:
+async def health(db: GraphDB = Depends(get_db)) -> dict[str, str]:
     if db is None or not db.is_connected:
         return {"status": "degraded", "neo4j": "unavailable"}
 
