@@ -1,4 +1,7 @@
-"""Backward-compatible re-export for legacy ``core.models`` imports."""
+"""
+[DEPRECATED] USE core.schemas.models instead.
+Backward-compatible re-export for legacy ``core.models`` imports.
+"""
 
 from core.schemas.models import (
     Candidate,

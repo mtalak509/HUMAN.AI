@@ -1,7 +1,7 @@
 ---
 title: STRUCTURE
 description: Directory layout, key file locations, and naming conventions for HUMAN.AI
-last_mapped: 2026-04-30
+last_mapped: 2026-05-04
 ---
 
 # STRUCTURE
@@ -10,12 +10,18 @@ last_mapped: 2026-04-30
 
 ```
 C:/dev/HUMAN.AI/
-├── api/                    # FastAPI app and route handlers
-│   └── .gitkeep            # (skeleton — no source files yet)
-├── core/                   # Domain logic: ingestion pipeline, graph ops, retrieval
-│   └── .gitkeep            # (skeleton — no source files yet)
-├── tests/                  # pytest test suite
-│   └── (empty)
+├── api/                    # FastAPI HTTP layer (thin)
+│   ├── __init__.py
+│   └── main.py             # App, lifespan, /health, DI helpers
+├── core/                   # Domain + infrastructure (no FastAPI imports here)
+│   ├── __init__.py
+│   ├── config.py           # pydantic-settings; get_settings() lru_cache'd
+│   ├── logger.py           # Loguru setup_logging
+│   ├── database/
+│   │   └── graph.py        # GraphDB — async Neo4j driver, retry, degraded mode
+│   └── schemas/
+│       └── models.py       # Pydantic ontology node models (Candidate, Fact, …)
+├── tests/                  # pytest test suite (add as phases land)
 ├── neo4j/                  # Neo4j data/logs (Docker volume mounts)
 │   ├── data/
 │   └── logs/
@@ -28,7 +34,8 @@ C:/dev/HUMAN.AI/
 ├── .planning/              # GSD planning artifacts
 │   └── codebase/           # Codebase map documents
 ├── .claude/                # Claude Code configuration
-├── docker-compose.yml      # Infrastructure services (Neo4j, Qdrant, Redis)
+├── docker-compose.yml      # Neo4j, Qdrant, Redis, FastAPI app service
+├── Dockerfile              # API image (uvicorn api.main:app)
 ├── pyproject.toml          # Python project metadata, dependencies, tool config
 ├── CLAUDE.md               # Claude Code instructions for this repo
 ├── core_architecture.md    # Primary architecture reference (Russian)
@@ -37,52 +44,58 @@ C:/dev/HUMAN.AI/
 
 ## Key Directories
 
-### `api/` — HTTP Layer
-- FastAPI application and route handlers
-- Thin layer: no business logic, only HTTP handling
-- Planned files:
-  - `api/main.py` — FastAPI app instantiation, router registration
-  - `api/routes/documents.py` — `POST /documents`, `GET /documents/{id}`
-  - `api/routes/search.py` — `POST /search`
-  - `api/schemas.py` — Pydantic request/response models
+### `api/` — HTTP layer
 
-### `core/` — Domain Logic
-- All domain logic: ingestion pipeline, graph operations, retrieval
-- No HTTP dependencies
-- Planned files:
-  - `core/parser.py` — PDF/DOCX/Huntflow JSON → `RawDocument`
-  - `core/extractor.py` — `RawDocument` → `ExtractedFact[]` via LLM structured output
-  - `core/resolver.py` — Entity deduplication and merge logic
-  - `core/graph_writer.py` — `ExtractedFact[]` → Neo4j Cypher transactions
-  - `core/vector.py` — BGE-M3 embedding + Qdrant upsert/search
-  - `core/retrieval.py` — Query Planner, Hybrid Search, Grounded Generation
-  - `core/tasks.py` — Celery task definitions
-  - `core/models.py` — Shared Pydantic models (`RawDocument`, `ExtractedFact`, `Shortlist`)
+- FastAPI application object and routes live here.
+- **Imports:** `core.config`, `core.database.graph`, `core.logger` — no business logic duplicated in HTTP handlers long-term.
+- **Current:** `api/main.py` — lifespan wiring, `GET /health`, `get_settings` / `get_db` for `Depends`.
+- **Planned:** `api/routes/*.py` routers, optional `api/schemas.py` for request/response DTOs distinct from graph ontology models.
 
-### `tests/` — Test Suite
-- Mirrors `core/` directory structure
-- All tests use pytest with `asyncio_mode = "auto"`
-- Planned eval harness lives here for extraction precision/recall measurement
+### `core/` — domain and side-effecting services
+
+- **No FastAPI** in `core/` — keeps graph, extraction, and retrieval testable without HTTP.
+- **Layout:**
+  - `core/config.py` — environment-backed `Settings`.
+  - `core/logger.py` — structured logging bootstrap.
+  - `core/database/graph.py` — Neo4j `GraphDB` (async driver, `connect_with_retry`, `ping`, `session`, `close`).
+  - `core/schemas/models.py` — Pydantic models aligned with the graph ontology (import surface for writers/extractors).
+
+- **Still planned** (not necessarily at `core/` root — follow `core_architecture.md` when adding):
+
+  - `core/parser.py` — PDF/DOCX → raw text / structured intake
+  - `core/extractor.py` — LLM structured output → facts
+  - `core/resolver.py` — entity deduplication / merge
+  - `core/graph_writer.py` — validated models → Cypher transactions
+  - `core/vector.py` — embeddings + Qdrant
+  - `core/retrieval.py` — query planning, hybrid search
+  - `core/tasks.py` — Celery tasks
+
+### `tests/` — test suite
+
+- Mirror `core/` (and later `api/`) layout where it helps navigation.
+- Pytest: `asyncio_mode = "auto"` (see `pyproject.toml`).
 
 ## Infrastructure (Docker Compose)
 
 All infra runs locally via Docker Compose:
 
-| Service | Image | Host Port | Purpose |
-|---------|-------|-----------|---------|
+| Service | Image / build | Host port | Purpose |
+|---------|----------------|-----------|---------|
 | Neo4j | `neo4j:5-community` | `7474` (HTTP), `7687` (Bolt) | Graph database — source of truth |
 | Qdrant | `qdrant/qdrant:latest` | `6333` | Vector index |
-| Redis | `redis:7-alpine` | `6379` | Celery task broker |
+| Redis | `redis:7-alpine` | `6379` | Celery broker |
+| FastAPI | `build: .` (Dockerfile) | `8000` | HTTP API (`uvicorn api.main:app`) |
 
 ```bash
-docker compose up -d    # start all infra services
+docker compose up -d    # infra + API (per compose file)
 ```
 
-Neo4j auth: `neo4j / ${NEO4J_PASSWORD:-changeme}` (env var or default)
+Neo4j auth: `neo4j / ${NEO4J_PASSWORD:-changeme}` (env var or default).
 
 ## Object Storage
 
 Raw documents stored on local disk (planned path pattern):
+
 ```
 ./storage/documents/{document_id}/{original_filename}   # raw file
 ./storage/documents/{document_id}/text.txt              # extracted plain text
@@ -92,9 +105,9 @@ Migration path to MinIO or S3-compatible object storage is planned but not in MV
 
 ## Configuration & Settings
 
-- `pyproject.toml` — project metadata, dependencies, Ruff/mypy/pytest config
-- `.env` (not committed) — secrets and connection strings for local dev
-- All settings via `pydantic-settings` (environment variables)
+- `pyproject.toml` — project metadata, dependencies, Ruff/mypy/pytest config.
+- `.env` (not committed) — secrets and connection strings for local dev.
+- All settings via `pydantic-settings` (environment variables).
 
 ## Naming Conventions
 
@@ -102,7 +115,7 @@ Migration path to MinIO or S3-compatible object storage is planned but not in MV
 |----------|-----------|---------|
 | Python source files | `snake_case.py` | `graph_writer.py`, `entity_resolver.py` |
 | Test files | `test_{module}.py` | `test_graph_writer.py` |
-| Pydantic models | `PascalCase` | `RawDocument`, `ExtractedFact` |
+| Pydantic models | `PascalCase` | `Candidate`, `Fact` |
 | Neo4j node labels | `PascalCase` | `Candidate`, `Skill`, `Fact` |
 | Neo4j relationship types | `UPPER_SNAKE_CASE` | `HAS_SKILL`, `EXTRACTED_FROM` |
 | Qdrant collection names | `snake_case` | `skills`, `experiences`, `resumes` |
@@ -111,6 +124,7 @@ Migration path to MinIO or S3-compatible object storage is planned but not in MV
 ## Important Files to Read First
 
 Before making structural decisions, read:
+
 - `CLAUDE.md` — project instructions and architectural rules
 - `core_architecture.md` — full architecture reference (Russian); contains graph ontology, component responsibilities, data flows, and open design decisions
 - `pyproject.toml` — dependency versions and tooling config
@@ -118,4 +132,4 @@ Before making structural decisions, read:
 
 ---
 
-*Structure analysis: 2026-04-30 — codebase is pre-implementation (skeleton only)*
+*Structure map aligned with repo layout as of 2026-05-04.*
