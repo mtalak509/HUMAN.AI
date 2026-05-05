@@ -1,4 +1,4 @@
-"""Backward-compatible re-export for legacy ``core.models`` imports."""
+"""Schema package exports."""
 
 from core.schemas.models import (
     Candidate,
