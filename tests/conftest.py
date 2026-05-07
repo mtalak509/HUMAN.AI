@@ -20,7 +20,10 @@ async def neo4j_driver(settings: Settings) -> AsyncGenerator[AsyncDriver, None]:
         auth=(settings.neo4j_user, settings.neo4j_password),
     )
     yield driver
-    await driver.close()
+    try:
+        await driver.close()
+    except Exception:
+        pass  # Windows ProactorEventLoop: _proactor can be None on teardown
 
 
 @pytest.fixture(scope="session")

@@ -70,3 +70,20 @@ async def find_candidates_by_status(
             status=status,
         )
         return [dict(record) async for record in result]
+
+
+if __name__ == "__main__":
+    import asyncio
+    from neo4j import AsyncGraphDatabase
+
+    async def main():
+        driver = AsyncGraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "changeme"))
+        result_find_candidates_by_skill = await find_candidates_by_skill(driver, "Python")
+        print(result_find_candidates_by_skill)
+        result_find_candidates_by_company = await find_candidates_by_company(driver, "TechFlow Analytics")
+        print(result_find_candidates_by_company)
+        result_find_candidates_by_status = await find_candidates_by_status(driver, "v-001", "in_progress")
+        print(result_find_candidates_by_status)
+        await driver.close()
+
+    asyncio.run(main())
