@@ -67,7 +67,7 @@ Plans:
 - [x] 03-02: Примеры Cypher-запросов — `scripts/queries.py`, документированные запросы поиска
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 03-03: Eval-харнес — `tests/conftest.py` с фикстурами, `tests/test_infra.py` со smoke-тестами
+- [x] 03-03: Eval-харнес — `tests/conftest.py` с фикстурами, `tests/test_infra.py` со smoke-тестами
 
 Cross-cutting constraints:
 - Все MERGE-ключи в 03-01 (Skill.name, Company.name, Role.title) должны совпадать с именами, используемыми в Cypher-запросах 03-02
@@ -78,4 +78,4 @@ Cross-cutting constraints:
 |------|-----------------|--------|-----------|
 | 1. Инфраструктурный скелет | 3/3 | Верификация | - |
 | 2. Онтология графа | 2/2 | Выполнена | 2026-05-04 |
-| 3. Тестовые данные и eval | 2/3 | В работе | - |
+| 3. Тестовые данные и eval | 3/3 | Выполнена | 2026-05-07 |
