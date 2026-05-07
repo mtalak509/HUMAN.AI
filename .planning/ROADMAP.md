@@ -4,13 +4,13 @@
 
 Фаза 0 — инфраструктурный фундамент Talent Intelligence Platform. Цель: поднять локальный стек одной командой, закодировать онтологию графа, загрузить тестовых кандидатов и убедиться, что базовые Cypher-запросы работают. Без этого фундамента все последующие фазы (парсер, LLM-экстрактор, retrieval) не имеют куда писать.
 
-**Критерий выхода из Фазы 0:** `docker compose up -d` поднимает весь стек, в Neo4j лежат 15 тестовых кандидатов, `pytest tests/test_infra.py` проходит зелёным.
+**Критерий выхода из Фазы 0:** `docker compose up -d` поднимает весь стек, в Neo4j лежит 1 тестовый кандидат, `pytest tests/test_infra.py` проходит зелёным.
 
 ## Фазы
 
 - [ ] **Фаза 1: Инфраструктурный скелет** - FastAPI-приложение запускается, читает конфиг из .env, логирует JSON, поднимается в Docker Compose вместе с Neo4j/Qdrant/Redis
 - [ ] **Фаза 2: Онтология графа** - Все 12 типов узлов описаны как Pydantic-модели, constraints и indexes применены к Neo4j, async Neo4j driver готов
-- [ ] **Фаза 3: Тестовые данные и eval** - 15 тестовых кандидатов в Neo4j, базовые Cypher-запросы работают, smoke-тесты проходят
+- [ ] **Фаза 3: Тестовые данные и eval** - 1 тестовый кандидат в Neo4j, базовые Cypher-запросы работают, smoke-тесты проходят
 
 ## Детали фаз
 
@@ -53,7 +53,7 @@ Plans:
 **Depends on**: Фаза 2
 **Requirements**: SEED-01, SEED-02, TEST-01, TEST-02
 **Success Criteria** (что должно быть ИСТИНОЙ):
-  1. `python scripts/seed.py` загружает 15 кандидатов с полным набором связей (Skills, Experience → Company/Role, Education, HRNote, Document, Fact); повторный запуск не создаёт дублей
+  1. `python scripts/seed.py` загружает 1 кандидата с полным набором связей (Skills, Experience → Company/Role, Education, HRNote, Document, Fact); повторный запуск не создаёт дублей
   2. Запросы из `scripts/queries.py` (поиск по навыку, по опыту в компании, по статусу) возвращают корректные кандидаты из seed-набора
   3. `pytest tests/test_infra.py` проходит зелёным: Neo4j `RETURN 1`, Qdrant `/health`, Redis `ping` — все три успешны
   4. pytest-фикстуры `settings`, `neo4j_driver`, `qdrant_client` из `tests/conftest.py` доступны любому тесту без повторной инициализации
@@ -61,7 +61,7 @@ Plans:
 **Plans**: 3 плана
 
 Plans:
-- [ ] 03-01: Seed-скрипт — `scripts/seed.py`, 15 кандидатов с полным графом связей через MERGE
+- [ ] 03-01: Seed-скрипт — `scripts/seed.py`, 1 кандидат с полным графом связей через MERGE
 - [ ] 03-02: Примеры Cypher-запросов — `scripts/queries.py`, документированные запросы поиска
 - [ ] 03-03: Eval-харнес — `tests/conftest.py` с фикстурами, `tests/test_infra.py` со smoke-тестами
 

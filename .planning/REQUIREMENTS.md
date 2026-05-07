@@ -20,7 +20,7 @@
 
 ### Тестовые данные
 
-- [ ] **SEED-01**: `scripts/seed.py` загружает в Neo4j 15 тестовых кандидатов с полным набором связей: Candidate → Skills, Experience (с Company, Role), Education, HRNote, Document, Fact — через идемпотентные MERGE-запросы
+- [ ] **SEED-01**: `scripts/seed.py` загружает в Neo4j 1 тестового кандидата с полным набором связей: Candidate → Skills, Experience (с Company, Role), Education, HRNote, Document, Fact — через идемпотентные MERGE-запросы
 - [ ] **SEED-02**: `scripts/queries.py` содержит задокументированные примеры Cypher-запросов: поиск кандидатов по навыку, по опыту в компании, по статусу в вакансии — каждый запрос возвращает корректные данные на seed-наборе
 
 ### Eval-харнес
