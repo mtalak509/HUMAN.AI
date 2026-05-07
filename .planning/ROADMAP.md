@@ -61,9 +61,16 @@ Plans:
 **Plans**: 3 плана
 
 Plans:
+
+**Wave 1** *(независимые, выполняются параллельно)*
 - [ ] 03-01: Seed-скрипт — `scripts/seed.py`, 1 кандидат с полным графом связей через MERGE
 - [ ] 03-02: Примеры Cypher-запросов — `scripts/queries.py`, документированные запросы поиска
+
+**Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 03-03: Eval-харнес — `tests/conftest.py` с фикстурами, `tests/test_infra.py` со smoke-тестами
+
+Cross-cutting constraints:
+- Все MERGE-ключи в 03-01 (Skill.name, Company.name, Role.title) должны совпадать с именами, используемыми в Cypher-запросах 03-02
 
 ## Прогресс
 
