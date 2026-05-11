@@ -2,12 +2,13 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import cast
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, Request, Response, status
 from loguru import logger
 
 from core.config import Settings
 from core.config import get_settings as _get_settings
 from core.database.graph import GraphDB
+from core.database.migrations import MigrationManager
 from core.logger import setup_logging
 
 
@@ -28,8 +29,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         user=settings.neo4j_user,
         password=settings.neo4j_password,
     )
+    migrations_manager = MigrationManager(db)
     try:
         await db.connect_with_retry(retries=3, delays=[1, 3, 9])
+        if db.is_connected:
+            await migrations_manager.apply_all()
     except Exception as exc:
         logger.warning("Neo4j unavailable during startup: {}", exc)
         if not hasattr(db, "is_connected"):
@@ -59,12 +63,17 @@ def get_db(request: Request) -> GraphDB:
 
 
 @app.get("/health")
-async def health(db: GraphDB = Depends(get_db)) -> dict[str, str]:
+async def health(
+    response: Response,
+    db: GraphDB = Depends(get_db),
+) -> dict[str, str]:
     if db is None or not db.is_connected:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         return {"status": "degraded", "neo4j": "unavailable"}
 
     try:
         await db.ping()
         return {"status": "ok"}
     except Exception:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         return {"status": "degraded", "neo4j": "unavailable"}
