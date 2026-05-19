@@ -20,6 +20,11 @@ def setup_logging(level: str = "INFO", json_mode: bool = False) -> None:
         logger.add(
             sys.stderr,
             level=level,
-            format="{time:HH:mm:ss} | {level:<8} | {name}:{line} | {message}",
+            format=(
+                "<green>{time:HH:mm:ss}</green> | "
+                "<level>{level:<8}</level> | "
+                "<cyan>{name}:{line}</cyan> | "
+                "<level>{message}</level>"
+            ),
             colorize=True,
         )
