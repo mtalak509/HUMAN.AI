@@ -524,7 +524,11 @@ async def _write_document_node(
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED during planning)
+
+> RESOLVED #1: Neo4j-down → log warning + return full ParseResult, no exception (graceful degradation per CLAUDE.md; supersedes the DocumentNodeWriteError recommendation below).
+> RESOLVED #2: storage_root → relative `Path("storage")` default, env-overridable via `STORAGE_ROOT`.
+> RESOLVED #3: document_id → full 64-char SHA-256 hex.
 
 1. **Storage graceful degradation: what does PdfParser return when Neo4j is down?**
    - What we know: GraphDB.session() raises RuntimeError if not connected.
