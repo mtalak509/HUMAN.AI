@@ -23,10 +23,11 @@ progress:
 
 ## Текущая позиция
 
-Фаза: Не начата (определяем roadmap)
-План: —
-Статус: Planning — milestone v1.1 начат
-Последняя активность: 2026-06-03 — Старт milestone v1.1 Ingestion Pipeline
+Фаза: 4 — PDF-парсер (контекст собран)
+План: — (готово к /gsd-plan-phase 4)
+Статус: Planning — Phase 4 context gathered
+Последняя активность: 2026-06-03 — Собран CONTEXT.md Фазы 4 (PDF-парсер)
+Resume: .planning/phases/04-pdf/04-CONTEXT.md
 
 Прогресс: [░░░░░░░░░░] 0%
 
