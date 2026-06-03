@@ -1,81 +1,102 @@
-# Roadmap: HUMAN.AI — Фаза 0
+# Roadmap: HUMAN.AI — Milestone v1.1 Ingestion Pipeline
 
 ## Обзор
 
-Фаза 0 — инфраструктурный фундамент Talent Intelligence Platform. Цель: поднять локальный стек одной командой, закодировать онтологию графа, загрузить тестовых кандидатов и убедиться, что базовые Cypher-запросы работают. Без этого фундамента все последующие фазы (парсер, LLM-экстрактор, retrieval) не имеют куда писать.
+Milestone v1.1 — первый полный ingestion-пайплайн: PDF → парсер → LLM-экстрактор → Graph Writer → Neo4j. Цель: загрузить PDF-резюме через API и получить кандидата в графе с experience, education, skills — без ручного ввода.
 
-**Критерий выхода из Фазы 0:** `docker compose up -d` поднимает весь стек, в Neo4j лежит 1 тестовый кандидат, `pytest tests/test_infra.py` проходит зелёным.
+Фундамент (Фазы 1–3, milestone v1.0) готов. Код LLM-экстрактора и парсера протестирован в R&D (`rnd/src/`). Этот milestone переводит R&D-наработки в продакшен-компоненты и добавляет Graph Writer + API.
+
+**Критерий выхода из v1.1:** `POST /documents` с реальным PDF → через несколько секунд в Neo4j появился Candidate с полным графом связей (Skills, Experience, Education, Contacts, Facts). Запрос из `scripts/queries.py` находит нового кандидата.
+
+**Нумерация фаз продолжается с 4** (milestone v1.0 завершился на Фазе 3).
 
 ## Фазы
 
-- [ ] **Фаза 1: Инфраструктурный скелет** - FastAPI-приложение запускается, читает конфиг из .env, логирует JSON, поднимается в Docker Compose вместе с Neo4j/Qdrant/Redis
-- [ ] **Фаза 2: Онтология графа** - Все 12 типов узлов описаны как Pydantic-модели, constraints и indexes применены к Neo4j, async Neo4j driver готов
-- [ ] **Фаза 3: Тестовые данные и eval** - 1 тестовый кандидат в Neo4j, базовые Cypher-запросы работают, smoke-тесты проходят
+- [ ] **Фаза 4: PDF-парсер** — `core/parser/` с pypdf→pdfplumber каскадом, object storage, Document-узел в графе
+- [ ] **Фаза 5: LLM-экстрактор** — `core/extractor/` на базе `rnd/src/`, адаптированный под полную онтологию
+- [ ] **Фаза 6: Graph Writer** — `core/writer/` — ExtractedFact[] → Cypher MERGE → Neo4j с Fact-провенансом
+- [ ] **Фаза 7: Ingestion API** — `POST /documents`, `GET /documents/{id}`, Celery-task, сквозная интеграция
 
 ## Детали фаз
 
-### Phase 1: Инфраструктурный скелет
-**Goal**: Разработчик может запустить приложение локально (`uvicorn` или `docker compose`), получить ответ от /health и быть уверен, что конфиг и логирование работают корректно
-**Depends on**: Ничего (первая фаза)
-**Requirements**: INFRA-01, INFRA-02, INFRA-03, INFRA-04, ONTO-03
-**Success Criteria** (что должно быть ИСТИНОЙ):
-  1. `GET /health` возвращает `200 OK` с телом `{"status": "ok"}` при запуске через `uvicorn api.main:app --reload`
-  2. Изменение `.env` меняет поведение приложения без правки кода (Neo4j URI, log_level и т.д.)
-  3. Логи приложения выводятся через loguru: цветной human-readable формат в консоли, уровень управляется через Settings.log_level
-  4. `docker compose up -d` поднимает Neo4j, Qdrant, Redis и FastAPI; FastAPI-контейнер проходит health-check
-  5. `core/graph.py` подключается к Neo4j, метод `ping()` возвращает успех, context-manager сессий работает без утечек
+### Phase 4: PDF-парсер
+**Goal:** Система принимает PDF, извлекает текст, сохраняет файл и создаёт Document-узел в Neo4j — всё через единый `PdfParser` класс в `core/parser/`
+**Depends on:** Фаза 3 (Neo4j driver, Document Pydantic-модель)
+**Requirements:** PARSE-01, PARSE-02, PARSE-03
+**Success Criteria:**
+  1. `PdfParser.parse(path)` возвращает объект с extracted_text, document_id, file_uri, text_uri
+  2. Исходный PDF и текстовый файл сохранены в `/storage/documents/{document_id}/`
+  3. `Document`-узел создан в Neo4j через MERGE с корректными полями
+  4. На резюме из `rnd/data/resume/` — текст извлечён, никаких пустых страниц в логах
+  5. Повторный вызов с тем же PDF не создаёт дублей (идемпотентность по SHA-256)
 
-**Plans**: 3 плана
-
-Plans:
-- [x] 01-01: FastAPI-скелет — `api/main.py`, роут `/health`, точка входа приложения
-- [x] 01-02: Конфигурация и логирование — `core/config.py` (pydantic-settings), loguru с цветным выводом в консоль
-- [x] 01-03: Docker Compose — добавить FastAPI-сервис, health-check, `core/graph.py` с async Neo4j driver
-
-### Phase 2: Онтология графа
-**Goal**: Онтология графа закодирована как Pydantic-модели и применена к Neo4j через идемпотентные миграции — любой следующий компонент может писать в граф по известной схеме
-**Depends on**: Фаза 1
-**Requirements**: ONTO-01, ONTO-02
-**Success Criteria** (что должно быть ИСТИНОЙ):
-  1. `core/models.py` содержит все 12 типов узлов (Candidate, Contact, Skill, Role, Company, Experience, Education, Vacancy, Status, HRNote, Document, Fact) с полями из раздела 4.2 `core_architecture.md`
-  2. `python scripts/migrate.py` применяет constraints и indexes к Neo4j; повторный запуск не ломает ничего и завершается без ошибок
-  3. После миграции Neo4j browser показывает уникальные constraint'ы на ключевых полях (например, `Candidate.id`) и indexes для быстрого поиска
-
-**Plans**: 2 плана
+**Plans:** 2 плана
 
 Plans:
-- [ ] 02-01: Pydantic-модели онтологии — `core/models.py`, все 12 типов узлов с аннотациями типов
-- [x] 02-01: Pydantic-модели онтологии — `core/models.py`, все 12 типов узлов с аннотациями типов
-- [x] 02-02: Скрипт миграции — `scripts/migrate.py`, Cypher constraints и indexes, идемпотентность
+- [ ] 04-01: `core/parser/pdf.py` — PdfParser класс, pypdf→pdfplumber каскад, object storage
+- [ ] 04-02: Document-узел в Neo4j — MERGE по document_id, интеграционный тест
 
-### Phase 3: Тестовые данные и eval
-**Goal**: В Neo4j лежат реалистичные тестовые кандидаты, базовые Cypher-запросы возвращают ожидаемые результаты, smoke-тесты инфраструктуры проходят — фундамент проверен без LLM
-**Depends on**: Фаза 2
-**Requirements**: SEED-01, SEED-02, TEST-01, TEST-02
-**Success Criteria** (что должно быть ИСТИНОЙ):
-  1. `python scripts/seed.py` загружает 1 кандидата с полным набором связей (Skills, Experience → Company/Role, Education, HRNote, Document, Fact); повторный запуск не создаёт дублей
-  2. Запросы из `scripts/queries.py` (поиск по навыку, по опыту в компании, по статусу) возвращают корректные кандидаты из seed-набора
-  3. `pytest tests/test_infra.py` проходит зелёным: Neo4j `RETURN 1`, Qdrant `/health`, Redis `ping` — все три успешны
-  4. pytest-фикстуры `settings`, `neo4j_driver`, `qdrant_client` из `tests/conftest.py` доступны любому тесту без повторной инициализации
+### Phase 5: LLM-экстрактор
+**Goal:** Система принимает plain text резюме и возвращает структурированные данные кандидата через LLM — перенос `rnd/src/openrouter_client.py` в `core/extractor/` с адаптацией под полную онтологию
+**Depends on:** Фаза 4 (Document-узел, plain text)
+**Requirements:** EXTR-01, EXTR-02, EXTR-03
+**Success Criteria:**
+  1. `Extractor.extract(text, document_id)` возвращает `ExtractedCandidate` — Pydantic-объект с полями из онтологии
+  2. Режим json_object + Pydantic-валидация + 1 retry работает без изменений (перенесён из rnd/)
+  3. Schema охватывает: full_name, contacts (email/phone/telegram/linkedin), experiences (from_date/to_date/company/role/description/skills_mentioned), education, skills
+  4. На 5 резюме из `rnd/data/resume/` — 0 ValidationError, результаты совпадают с `rnd/data/results/*.parsed.json`
+  5. `model_version` и `document_id` пишутся в каждый извлечённый факт
 
-**Plans**: 3 плана
+**Plans:** 2 плана
+
+Plans:
+- [ ] 05-01: `core/extractor/schema.py` — ExtractedCandidate Pydantic-схема, адаптированная под онтологию графа
+- [ ] 05-02: `core/extractor/llm.py` — Extractor класс, перенос логики из rnd/src/openrouter_client.py
+
+### Phase 6: Graph Writer
+**Goal:** Система принимает ExtractedCandidate и записывает полный граф кандидата в Neo4j через MERGE — с Fact-провенансом и денормализованными прямыми связями
+**Depends on:** Фаза 5 (ExtractedCandidate), Фаза 4 (Document-узел)
+**Requirements:** WRITE-01, WRITE-02, WRITE-03, WRITE-04
+**Success Criteria:**
+  1. `GraphWriter.write(candidate, document_id)` создаёт все узлы: Candidate, Contact, Skill, Experience, Company, Role, Education — через MERGE
+  2. Для каждого извлечённого факта создан Fact-узел с `EXTRACTED_FROM → Document` и `SUPPORTS → Skill/Experience/...`
+  3. Прямые связи `Candidate -[:HAS_SKILL]-> Skill` созданы параллельно с Fact-узлами (денормализация)
+  4. Повторный `write()` с тем же документом — граф не изменился, узлов не прибавилось
+  5. Cypher-запросы из `scripts/queries.py` находят нового кандидата по навыку и компании
+
+**Plans:** 2 плана
+
+Plans:
+- [ ] 06-01: `core/writer/cypher.py` — Cypher MERGE транзакции для всех 12 типов узлов
+- [ ] 06-02: `core/writer/graph_writer.py` — GraphWriter класс, Fact-провенанс, идемпотентность
+
+### Phase 7: Ingestion API
+**Goal:** Полный ingestion-пайплайн доступен через HTTP API — `POST /documents` запускает Celery-задачу, `GET /documents/{id}` отдаёт статус; сквозной тест: PDF через API → кандидат в графе
+**Depends on:** Фазы 4–6 (парсер, экстрактор, writer)
+**Requirements:** API-01, API-02, PIPE-01
+**Success Criteria:**
+  1. `POST /documents` (multipart/form-data, поле `file`) возвращает `{"document_id": "...", "task_id": "..."}` за < 200ms
+  2. `GET /documents/{document_id}` возвращает корректный статус на каждом этапе (queued → parsing → extracting → writing → written)
+  3. Celery worker обрабатывает PDF: parse → extract → write — без блокировки HTTP-сервера
+  4. Сквозной тест: POST реального PDF → polling GET до `written` → запрос `find_candidates_by_skill()` находит кандидата
+  5. При ошибке на любом шаге — статус `failed` с описанием ошибки, повторный POST не создаёт дублей
+
+**Plans:** 3 плана
 
 Plans:
 
-**Wave 1** *(независимые, выполняются параллельно)*
-- [x] 03-01: Seed-скрипт — `scripts/seed.py`, 1 кандидат с полным графом связей через MERGE
-- [x] 03-02: Примеры Cypher-запросов — `scripts/queries.py`, документированные запросы поиска
+**Wave 1** *(независимые)*
+- [ ] 07-01: Celery task `process_document` — оркестрирует parse→extract→write, обновляет статус в Neo4j
+- [ ] 07-02: API эндпоинты — `POST /documents`, `GET /documents/{id}` в `api/routers/documents.py`
 
-**Wave 2** *(blocked on Wave 1 completion)*
-- [x] 03-03: Eval-харнес — `tests/conftest.py` с фикстурами, `tests/test_infra.py` со smoke-тестами
-
-Cross-cutting constraints:
-- Все MERGE-ключи в 03-01 (Skill.name, Company.name, Role.title) должны совпадать с именами, используемыми в Cypher-запросах 03-02
+**Wave 2** *(blocked on Wave 1)*
+- [ ] 07-03: Сквозной интеграционный тест — PDF → API → Neo4j, smoke-тест пайплайна
 
 ## Прогресс
 
 | Фаза | Планов выполнено | Статус | Завершена |
 |------|-----------------|--------|-----------|
-| 1. Инфраструктурный скелет | 3/3 | Верификация | - |
-| 2. Онтология графа | 2/2 | Выполнена | 2026-05-04 |
-| 3. Тестовые данные и eval | 3/3 | Выполнена | 2026-05-07 |
+| 4. PDF-парсер | 0/2 | Pending | — |
+| 5. LLM-экстрактор | 0/2 | Pending | — |
+| 6. Graph Writer | 0/2 | Pending | — |
+| 7. Ingestion API | 0/3 | Pending | — |
