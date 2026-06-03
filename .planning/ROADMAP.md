@@ -12,7 +12,7 @@ Milestone v1.1 — первый полный ingestion-пайплайн: PDF →
 
 ## Фазы
 
-- [ ] **Фаза 4: PDF-парсер** — `core/parser/` с pypdf→pdfplumber каскадом, object storage, Document-узел в графе
+- [ ] **Фаза 4: PDF-парсер** — `core/parser/` с pypdf-извлечением (каскад на pdfplumber отложен — D-01), object storage, Document-узел в графе
 - [ ] **Фаза 5: LLM-экстрактор** — `core/extractor/` на базе `rnd/src/`, адаптированный под полную онтологию
 - [ ] **Фаза 6: Graph Writer** — `core/writer/` — ExtractedFact[] → Cypher MERGE → Neo4j с Fact-провенансом
 - [ ] **Фаза 7: Ingestion API** — `POST /documents`, `GET /documents/{id}`, Celery-task, сквозная интеграция
@@ -27,14 +27,14 @@ Milestone v1.1 — первый полный ingestion-пайплайн: PDF →
   1. `PdfParser.parse(path)` возвращает объект с extracted_text, document_id, file_uri, text_uri
   2. Исходный PDF и текстовый файл сохранены в `/storage/documents/{document_id}/`
   3. `Document`-узел создан в Neo4j через MERGE с корректными полями
-  4. На резюме из `rnd/data/resume/` — текст извлечён, никаких пустых страниц в логах
+  4. На резюме из `rnd/data/resume/` — текст извлечён pypdf, никаких пустых страниц в логах (D-03: каскад на pdfplumber сужен до pypdf-only в v1)
   5. Повторный вызов с тем же PDF не создаёт дублей (идемпотентность по SHA-256)
 
 **Plans:** 2 плана
 
 Plans:
-- [ ] 04-01: `core/parser/pdf.py` — PdfParser класс, pypdf→pdfplumber каскад, object storage
-- [ ] 04-02: Document-узел в Neo4j — MERGE по document_id, интеграционный тест
+- [ ] 04-01-PLAN.md — extraction-backend seam (Protocol+PyPdfBackend), SHA-256 document_id, object storage, storage_root setting, Wave 0 test stubs (Wave 1)
+- [ ] 04-02-PLAN.md — Document-модель D-09 + идемпотентный Neo4j MERGE + интеграционные тесты PARSE-03 (Wave 2)
 
 ### Phase 5: LLM-экстрактор
 **Goal:** Система принимает plain text резюме и возвращает структурированные данные кандидата через LLM — перенос `rnd/src/openrouter_client.py` в `core/extractor/` с адаптацией под полную онтологию
