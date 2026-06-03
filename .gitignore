@@ -17,12 +17,15 @@ htmlcov/
 
 # Virtual environments
 .venv/
+.ven-win/
 venv/
 env/
 ENV/
 
 # Environment variables
 .env
+*.env
+!.env.example
 .env.local
 .env.*.local
 
@@ -63,3 +66,14 @@ qdrant_storage/
 
 # Redis
 dump.rdb
+
+# Project docs (local only)
+CLAUDE.md
+core_architecture.md
+
+# .claude
+.claude/
+CLAUDE.md
+
+#rnd
+rnd/data/

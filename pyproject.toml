@@ -19,10 +19,13 @@ dependencies = [
     "pdfplumber>=0.11",
     "pypdf>=4.2",
     "python-docx>=1.1",
-    # Embeddings
-    "FlagEmbedding>=1.2",
     # HTTP client
     "httpx>=0.27",
+    # Logging
+    "loguru>=0.7",
+    # R&D smoke-test
+    "openai>=1.40",
+    "python-dotenv>=1.0",
 ]
 
 [project.optional-dependencies]
@@ -48,4 +51,5 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
 testpaths = ["tests"]
