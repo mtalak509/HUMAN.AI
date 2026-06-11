@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Ingestion Pipeline
-status: planning
-last_updated: "2026-06-03T00:00:00Z"
+status: in_progress
+last_updated: "2026-06-11T15:09:00Z"
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 9
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 11
 ---
 
 # Состояние проекта
@@ -23,13 +23,13 @@ progress:
 
 ## Текущая позиция
 
-Фаза: 4 — PDF-парсер (спланирована, 2 плана)
-План: 04-01, 04-02 — готово к /gsd-execute-phase 4
-Статус: Ready to execute — Phase 4 plans verified (PASSED)
-Последняя активность: 2026-06-03 — Созданы и проверены планы Фазы 4 (PDF-парсер)
-Resume: .planning/phases/04-pdf/04-01-PLAN.md
+Фаза: 4 — PDF-парсер (выполняется)
+План: 04-01 ✅ ВЫПОЛНЕН → следующий: 04-02
+Статус: Executing — план 04-01 завершён, 04-02 готов к старту
+Последняя активность: 2026-06-11 — Выполнен план 04-01 (core/parser, Settings.storage_root, unit tests)
+Resume: .planning/phases/04-pdf/04-02-PLAN.md
 
-Прогресс: [░░░░░░░░░░] 0%
+Прогресс: [█░░░░░░░░░] 11%
 
 ## Накопленный контекст
 
@@ -41,6 +41,10 @@ Resume: .planning/phases/04-pdf/04-01-PLAN.md
 - Entity Resolver — не в v1.1, каждое резюме = новый кандидат ✓
 - Полноценный R&D пропускаем — smoke-test достаточен ✓
 - MERGE-ключи: Candidate.id, Skill.name, Company.name, Role.title (из migrations.py) ✓
+- PyPdfBackend: ("", "empty") когда все страницы пустые — маркеры не включаются ✓
+- storage_root: Path = Path("storage") в Settings, env STORAGE_ROOT ✓
+- ParseResult.file_uri / text_uri — относительные пути (не абсолютные) ✓
+- openrouter_api_key добавлен в Settings как str | None для совместимости с .env ✓
 
 ### Ожидающие задачи
 
@@ -60,6 +64,6 @@ Resume: .planning/phases/04-pdf/04-01-PLAN.md
 
 ## Непрерывность сессий
 
-Последняя сессия: 2026-06-03
-Остановились на: Старт milestone v1.1 — requirements определены, roadmap создаётся
-Файл возобновления: Нет
+Последняя сессия: 2026-06-11
+Остановились на: План 04-01 выполнен — core/parser готов, unit тесты зелёные
+Файл возобновления: .planning/phases/04-pdf/04-02-PLAN.md

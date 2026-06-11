@@ -33,7 +33,7 @@ Milestone v1.1 — первый полный ingestion-пайплайн: PDF →
 **Plans:** 2 плана
 
 Plans:
-- [ ] 04-01-PLAN.md — extraction-backend seam (Protocol+PyPdfBackend), SHA-256 document_id, object storage, storage_root setting, Wave 0 test stubs (Wave 1)
+- [x] 04-01-PLAN.md — extraction-backend seam (Protocol+PyPdfBackend), SHA-256 document_id, object storage, storage_root setting, Wave 0 test stubs (Wave 1) ✅ 2026-06-11
 - [ ] 04-02-PLAN.md — Document-модель D-09 + идемпотентный Neo4j MERGE + интеграционные тесты PARSE-03 (Wave 2)
 
 ### Phase 5: LLM-экстрактор
@@ -96,7 +96,7 @@ Plans:
 
 | Фаза | Планов выполнено | Статус | Завершена |
 |------|-----------------|--------|-----------|
-| 4. PDF-парсер | 0/2 | Pending | — |
+| 4. PDF-парсер | 1/2 | In Progress | — |
 | 5. LLM-экстрактор | 0/2 | Pending | — |
 | 6. Graph Writer | 0/2 | Pending | — |
 | 7. Ingestion API | 0/3 | Pending | — |
