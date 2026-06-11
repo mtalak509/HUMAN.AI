@@ -24,9 +24,9 @@
 
 ### Парсер (PDF)
 
-- [ ] **PARSE-01**: Система принимает PDF-файл и извлекает plain text (pypdf → pdfplumber cascade)
-- [ ] **PARSE-02**: Система сохраняет исходный PDF и текст на диск (`/storage/documents/{document_id}/`)
-- [ ] **PARSE-03**: Система создаёт `Document`-узел в Neo4j (file_uri, text_uri, parser_version, ingested_at)
+- [x] **PARSE-01**: Система принимает PDF-файл и извлекает plain text (pypdf-only за seam'ом; pdfplumber-каскад отложен — D-01) ✅ Фаза 4
+- [x] **PARSE-02**: Система сохраняет исходный PDF и текст на диск (`{storage_root}/documents/{document_id}/`) ✅ Фаза 4
+- [x] **PARSE-03**: Система создаёт `Document`-узел в Neo4j (file_uri, text_uri, parser_version, extraction_status, ingested_at) ✅ Фаза 4
 
 ### LLM-экстрактор
 
@@ -81,9 +81,9 @@
 
 | Требование | Фаза | Статус |
 |------------|------|--------|
-| PARSE-01 | Фаза 4 | Pending |
-| PARSE-02 | Фаза 4 | Pending |
-| PARSE-03 | Фаза 4 | Pending |
+| PARSE-01 | Фаза 4 | Done ✅ |
+| PARSE-02 | Фаза 4 | Done ✅ |
+| PARSE-03 | Фаза 4 | Done ✅ |
 | EXTR-01 | Фаза 5 | Pending |
 | EXTR-02 | Фаза 5 | Pending |
 | EXTR-03 | Фаза 5 | Pending |
