@@ -7,8 +7,7 @@ import json
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
-
+from pydantic import ValidationError  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # Task 1: Schema tests
