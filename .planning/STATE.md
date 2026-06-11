@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Ingestion Pipeline
 status: in_progress
-last_updated: "2026-06-11T16:00:00Z"
+last_updated: "2026-06-11T17:05:00Z"
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 9
-  completed_plans: 2
-  percent: 22
+  completed_plans: 3
+  percent: 33
 ---
 
 # Состояние проекта
@@ -23,12 +23,12 @@ progress:
 
 ## Текущая позиция
 
-Фаза: 5 — LLM-экстрактор (спланирована, готова к выполнению)
-Статус: Ready to execute — 2 плана (05-01 schema+config, 05-02 Extractor), verification passed
-Последняя активность: 2026-06-11 — Спланирована Фаза 5 (/gsd-plan-phase 5): 2 плана, 2 волны, EXTR-01/02/03 покрыты
-Resume: .planning/phases/05-llm/05-01-PLAN.md
+Фаза: 5 — LLM-экстрактор (в процессе, план 05-01 выполнен)
+Статус: In Progress — план 05-01 завершён; 05-02 (Extractor async + retry) следующий
+Последняя активность: 2026-06-11 — Выполнен план 05-01: ExtractedCandidate schema + extractor config knobs
+Resume: .planning/phases/05-llm/05-02-PLAN.md
 
-Прогресс: [██░░░░░░░░] 22%
+Прогресс: [███░░░░░░░] 33%
 
 ## Накопленный контекст
 
@@ -44,6 +44,8 @@ Resume: .planning/phases/05-llm/05-01-PLAN.md
 - storage_root: Path = Path("storage") в Settings, env STORAGE_ROOT ✓
 - ParseResult.file_uri / text_uri — относительные пути (не абсолютные) ✓
 - openrouter_api_key добавлен в Settings как str | None для совместимости с .env ✓
+- ExtractedCandidate: поля verbatim из rnd Resume (D-04); is_current = computed_field (D-05); провенанс document_id+model_version (D-02); без переименования под онтологию (D-06) ✓
+- extractor config knobs в Settings: extractor_model/openrouter_base_url/extractor_timeout/extractor_temperature с дефолтами smoke-test ✓
 - Document MERGE: SET (не ON CREATE SET) — повторный парсинг обновляет тот же узел, без дублей ✓
 - is_connected guard перед session() — graceful degradation при недоступном Neo4j ✓
 - corpus smoke-тест работает с db=None — независим от инфры ✓
@@ -68,5 +70,5 @@ Resume: .planning/phases/05-llm/05-01-PLAN.md
 ## Непрерывность сессий
 
 Последняя сессия: 2026-06-11
-Остановились на: Фаза 5 спланирована — 05-01 (ExtractedCandidate + config), 05-02 (Extractor async + retry); verification passed
-Файл возобновления: .planning/phases/05-llm/05-01-PLAN.md
+Остановились на: Выполнен 05-01 — ExtractedCandidate Pydantic v2 schema + is_current + config knobs; 24 теста зелёных
+Файл возобновления: .planning/phases/05-llm/05-02-PLAN.md
