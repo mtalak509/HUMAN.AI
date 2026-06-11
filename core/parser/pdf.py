@@ -6,19 +6,37 @@ Responsibilities (plan 04-01):
   - Persist original PDF + extracted text.md under {storage_root}/documents/{id}/ (Pattern 4)
   - Return a frozen ParseResult dataclass (Pattern 7)
 
-NOT in this plan:
-  - Document-node MERGE in Neo4j — added in plan 04-02 (see comment below)
+Responsibilities (plan 04-02):
+  - MERGE Document node into Neo4j keyed on document_id (PARSE-03, D-09)
+  - Graceful degradation: if Neo4j is unavailable, files are saved and ParseResult is returned
+    without crashing (T-04-06)
 """
 
 import asyncio
 import hashlib
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 from loguru import logger
 
 from core.config import get_settings
+from core.database.graph import GraphDB
 from core.parser._backend import PyPdfBackend, TextExtractorBackend
+
+# Cypher MERGE for Document node (PARSE-03, T-04-05 — bound parameters, no string interpolation)
+# MERGE on .id only (document_id_unique constraint — do not change the key).
+# Uses SET (not ON-CREATE-SET) so re-parsing the same PDF refreshes all fields idempotently (WRITE-04).
+MERGE_DOCUMENT_CYPHER = """
+MERGE (d:Document {id: $document_id})
+SET d.type = $type,
+    d.file_uri = $file_uri,
+    d.text_uri = $text_uri,
+    d.parser_version = $parser_version,
+    d.extraction_status = $extraction_status,
+    d.ingested_at = $ingested_at
+RETURN d
+"""
 
 
 @dataclass(frozen=True)
@@ -41,7 +59,7 @@ class PdfParser:
     """Async PDF parsing + storage service.
 
     Constructor is dependency-injectable:
-      - db: GraphDB | None — for plan 04-02 Document-node MERGE; None is safe here
+      - db: GraphDB | None — for Document-node MERGE; None is safe (degraded mode)
       - storage_root: override get_settings().storage_root (useful in tests with tmp_path)
       - backend: override PyPdfBackend (extensibility seam D-02)
 
@@ -52,7 +70,7 @@ class PdfParser:
 
     def __init__(
         self,
-        db: object | None = None,
+        db: GraphDB | None = None,
         storage_root: Path | None = None,
         backend: TextExtractorBackend | None = None,
     ) -> None:
@@ -84,7 +102,9 @@ class PdfParser:
             ValueError: if pdf_path does not have a .pdf suffix.
 
         Note:
-            Document-node MERGE added in plan 04-02.
+            If Neo4j is unavailable (db=None or db.is_connected=False), the Document
+            node is NOT persisted but parse() still returns a complete ParseResult
+            (graceful degradation per CLAUDE.md / T-04-06).
         """
         # --- Input validation (V5 / Security T-04-01) ---
         pdf_path = Path(pdf_path)
@@ -133,7 +153,30 @@ class PdfParser:
             status,
         )
 
-        result = ParseResult(
+        # --- Document-node MERGE (PARSE-03, plan 04-02) ---
+        # Files are already on disk at this point; a Neo4j outage never loses data.
+        # Guard on is_connected BEFORE calling session() — session() raises RuntimeError
+        # when not connected (Pitfall 4 / T-04-06 graceful degradation).
+        if self._db is None or not self._db.is_connected:
+            logger.warning(
+                "pdf_parser: Neo4j unavailable — document node not persisted id={}",
+                document_id,
+            )
+        else:
+            async with self._db.session() as session:
+                await session.run(
+                    MERGE_DOCUMENT_CYPHER,
+                    document_id=document_id,
+                    type="resume",
+                    file_uri=file_uri,
+                    text_uri=text_uri,
+                    parser_version=parser_version,
+                    extraction_status=status,
+                    ingested_at=datetime.now(timezone.utc).isoformat(),
+                )
+            logger.info("pdf_parser: document node merged id={}", document_id)
+
+        return ParseResult(
             document_id=document_id,
             extracted_text=text,
             file_uri=file_uri,
@@ -141,13 +184,3 @@ class PdfParser:
             extraction_status=status,
             parser_version=parser_version,
         )
-
-        # Document-node MERGE added in plan 04-02
-        # if self._db is not None and hasattr(self._db, "is_connected"):
-        #     if not self._db.is_connected:
-        #         logger.warning("Neo4j unavailable — node not persisted id={}", document_id)
-        #     else:
-        #         async with self._db.session() as session:
-        #             await session.run(MERGE_DOCUMENT_CYPHER, ...)
-
-        return result
