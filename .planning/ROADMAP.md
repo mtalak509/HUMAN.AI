@@ -51,7 +51,7 @@ Plans:
 
 Plans:
 - [x] 05-01-PLAN.md — `core/extractor/schema.py` (ExtractedCandidate + is_current + провенанс) + конфиг-кнобы экстрактора в Settings; equivalence-валидация 5 эталонных parsed.json (Wave 1) ✅ 2026-06-11
-- [ ] 05-02-PLAN.md — `core/extractor/llm.py` (Extractor: async extract + json_object + 1 retry + штамповка провенанса) + live equivalence integration-тест (Wave 2)
+- [x] 05-02-PLAN.md — `core/extractor/llm.py` (Extractor: async extract + json_object + 1 retry + штамповка провенанса) + live equivalence integration-тест (Wave 2) ✅ 2026-06-11
 
 ### Phase 6: Graph Writer
 **Goal:** Система принимает ExtractedCandidate и записывает полный граф кандидата в Neo4j через MERGE — с Fact-провенансом и денормализованными прямыми связями
@@ -97,6 +97,6 @@ Plans:
 | Фаза | Планов выполнено | Статус | Завершена |
 |------|-----------------|--------|-----------|
 | 4. PDF-парсер | 2/2 | Complete | 2026-06-11 |
-| 5. LLM-экстрактор | 1/2 | In Progress | — |
+| 5. LLM-экстрактор | 2/2 | Complete | 2026-06-11 |
 | 6. Graph Writer | 0/2 | Pending | — |
 | 7. Ingestion API | 0/3 | Pending | — |
