@@ -54,7 +54,9 @@ async def test_document_node_idempotent(graph_db: GraphDB, tmp_path: Path) -> No
         record = await r.single()
 
     assert record is not None
-    assert record["c"] == 1, f"Expected 1 Document node, got {record['c']} (MERGE must be idempotent)"
+    assert record["c"] == 1, (
+        f"Expected 1 Document node, got {record['c']} (MERGE must be idempotent)"
+    )
 
 
 async def test_document_node_fields(graph_db: GraphDB, tmp_path: Path) -> None:
@@ -75,7 +77,9 @@ async def test_document_node_fields(graph_db: GraphDB, tmp_path: Path) -> None:
 
     # D-09 fields must be non-null and correct
     assert node["text_uri"] is not None, "text_uri must be set on Document node"
-    assert node["parser_version"] == "pypdf-v1", f"parser_version mismatch: {node['parser_version']}"
+    assert node["parser_version"] == "pypdf-v1", (
+        f"parser_version mismatch: {node['parser_version']}"
+    )
     assert node["extraction_status"] in {"ok", "empty"}, (
         f"extraction_status must be 'ok' or 'empty', got: {node['extraction_status']}"
     )

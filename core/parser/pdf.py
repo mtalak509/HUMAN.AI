@@ -13,9 +13,9 @@ Responsibilities (plan 04-02):
 """
 
 import asyncio
+import datetime as dt
 import hashlib
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 
 from loguru import logger
@@ -26,7 +26,7 @@ from core.parser._backend import PyPdfBackend, TextExtractorBackend
 
 # Cypher MERGE for Document node (PARSE-03, T-04-05 — bound parameters, no string interpolation)
 # MERGE on .id only (document_id_unique constraint — do not change the key).
-# Uses SET (not ON-CREATE-SET) so re-parsing the same PDF refreshes all fields idempotently (WRITE-04).
+# Uses SET (not ON-CREATE-SET) — re-parsing the same PDF refreshes fields idempotently (WRITE-04).
 MERGE_DOCUMENT_CYPHER = """
 MERGE (d:Document {id: $document_id})
 SET d.type = $type,
@@ -172,7 +172,7 @@ class PdfParser:
                     text_uri=text_uri,
                     parser_version=parser_version,
                     extraction_status=status,
-                    ingested_at=datetime.now(timezone.utc).isoformat(),
+                    ingested_at=dt.datetime.now(dt.UTC).isoformat(),
                 )
             logger.info("pdf_parser: document node merged id={}", document_id)
 
