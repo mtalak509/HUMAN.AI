@@ -32,7 +32,7 @@
 
 - [x] **EXTR-01**: Система принимает plain text и возвращает структурированный Resume-объект через LLM ✅ Фаза 5
 - [x] **EXTR-02**: Режим json_object + Pydantic-валидация + 1 retry при ValidationError ✅ Фаза 5
-- [x] **EXTR-03**: Schema охватывает: full_name, contacts, experiences (даты/компания/роль/навыки), education, skills
+- [x] **EXTR-03**: Schema охватывает: full_name, contacts, experiences (даты/компания/роль/навыки), education, skills ✅ Фаза 5
 
 ### Graph Writer
 
@@ -102,4 +102,4 @@
 
 ---
 *Requirements defined: 2026-06-03*
-*Last updated: 2026-06-11 — EXTR-01/EXTR-02 complete (Phase 5 plan 05-02)*
+*Last updated: 2026-06-11 — EXTR-01/EXTR-02/EXTR-03 complete (Phase 5 verified, 9/9 must-haves)*
