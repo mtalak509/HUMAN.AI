@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Ingestion Pipeline
 status: in_progress
-last_updated: "2026-06-11T15:19:00Z"
+last_updated: "2026-06-11T16:00:00Z"
 progress:
   total_phases: 4
   completed_phases: 1
@@ -23,10 +23,10 @@ progress:
 
 ## Текущая позиция
 
-Фаза: 5 — LLM-экстрактор (контекст собран, готова к планированию)
-Статус: Discussed — 05-CONTEXT.md создан (async API, top-level провенанс, rnd-схема + is_current)
-Последняя активность: 2026-06-11 — Собран контекст Фазы 5 (/gsd-discuss-phase 5)
-Resume: .planning/phases/05-llm/05-CONTEXT.md
+Фаза: 5 — LLM-экстрактор (спланирована, готова к выполнению)
+Статус: Ready to execute — 2 плана (05-01 schema+config, 05-02 Extractor), verification passed
+Последняя активность: 2026-06-11 — Спланирована Фаза 5 (/gsd-plan-phase 5): 2 плана, 2 волны, EXTR-01/02/03 покрыты
+Resume: .planning/phases/05-llm/05-01-PLAN.md
 
 Прогресс: [██░░░░░░░░] 22%
 
@@ -68,5 +68,5 @@ Resume: .planning/phases/05-llm/05-CONTEXT.md
 ## Непрерывность сессий
 
 Последняя сессия: 2026-06-11
-Остановились на: План 04-02 выполнен — Document MERGE, D-09 поля, PARSE-03 integration tests
-Файл возобновления: .planning/phases/05-*/05-01-PLAN.md
+Остановились на: Фаза 5 спланирована — 05-01 (ExtractedCandidate + config), 05-02 (Extractor async + retry); verification passed
+Файл возобновления: .planning/phases/05-llm/05-01-PLAN.md
