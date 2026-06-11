@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from core.parser import ParseResult, PdfParser
+from core.parser import PdfParser
 from core.parser._backend import PyPdfBackend, TextExtractorBackend
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")

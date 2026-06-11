@@ -28,7 +28,7 @@ async def test_document_node_idempotent(tmp_path: Path) -> None:
 
 @pytest.mark.skip(reason="implemented in plan 04-02")
 async def test_document_node_fields(tmp_path: Path) -> None:
-    """The :Document node has file_uri, text_uri, parser_version, extraction_status, ingested_at set."""
+    """The :Document node has file_uri, text_uri, parser_version, extraction_status set."""
     ...
 
 

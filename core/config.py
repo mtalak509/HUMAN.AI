@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     # Document storage
     storage_root: Path = Field(
         default=Path("storage"),
-        description="Root directory for document storage (relative to cwd or absolute); env STORAGE_ROOT",
+        description="Root directory for document storage (relative to cwd or absolute)",
     )
 
     # R&D / external LLM (optional — used by rnd/ scripts only)

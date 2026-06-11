@@ -76,8 +76,15 @@ class PyPdfBackend:
                 empty_pages,
             )
 
+        # D-08: if ALL pages were empty, return ("", "empty") — no page markers.
+        # This satisfies the contract "image-only PDF returns ('', 'empty') without raising".
+        # Partial-empty PDFs (some pages have text) return the full text with markers and "ok".
+        all_empty = len(empty_pages) == len(pages)
+        if all_empty:
+            return "", "empty"
+
         text = "\n\n".join(pages)
-        status = "empty" if not text.strip() else "ok"  # D-08
+        status = "ok"
 
         logger.info(
             "pdf_parser: extracted file={} pages={} chars={} status={}",
