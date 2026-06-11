@@ -31,3 +31,13 @@ def qdrant_client(settings: Settings) -> Generator[QdrantClient, None, None]:
     client = QdrantClient(url=str(settings.qdrant_url))
     yield client
     client.close()
+
+
+@pytest_asyncio.fixture(loop_scope="session", scope="session")
+async def graph_db(settings: Settings) -> AsyncGenerator["GraphDB", None]:  # type: ignore[name-defined]
+    from core.database.graph import GraphDB
+
+    db = GraphDB(uri=settings.neo4j_uri, user=settings.neo4j_user, password=settings.neo4j_password)
+    await db.connect_with_retry(retries=1, delays=[0])
+    yield db
+    await db.close()
