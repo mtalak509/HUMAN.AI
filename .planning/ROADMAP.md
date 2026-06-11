@@ -12,7 +12,7 @@ Milestone v1.1 — первый полный ingestion-пайплайн: PDF →
 
 ## Фазы
 
-- [ ] **Фаза 4: PDF-парсер** — `core/parser/` с pypdf-извлечением (каскад на pdfplumber отложен — D-01), object storage, Document-узел в графе
+- [x] **Фаза 4: PDF-парсер** — `core/parser/` с pypdf-извлечением (каскад на pdfplumber отложен — D-01), object storage, Document-узел в графе ✅ 2026-06-11
 - [ ] **Фаза 5: LLM-экстрактор** — `core/extractor/` на базе `rnd/src/`, адаптированный под полную онтологию
 - [ ] **Фаза 6: Graph Writer** — `core/writer/` — ExtractedFact[] → Cypher MERGE → Neo4j с Fact-провенансом
 - [ ] **Фаза 7: Ingestion API** — `POST /documents`, `GET /documents/{id}`, Celery-task, сквозная интеграция
@@ -34,7 +34,7 @@ Milestone v1.1 — первый полный ingestion-пайплайн: PDF →
 
 Plans:
 - [x] 04-01-PLAN.md — extraction-backend seam (Protocol+PyPdfBackend), SHA-256 document_id, object storage, storage_root setting, Wave 0 test stubs (Wave 1) ✅ 2026-06-11
-- [ ] 04-02-PLAN.md — Document-модель D-09 + идемпотентный Neo4j MERGE + интеграционные тесты PARSE-03 (Wave 2)
+- [x] 04-02-PLAN.md — Document-модель D-09 + идемпотентный Neo4j MERGE + интеграционные тесты PARSE-03 (Wave 2) ✅ 2026-06-11
 
 ### Phase 5: LLM-экстрактор
 **Goal:** Система принимает plain text резюме и возвращает структурированные данные кандидата через LLM — перенос `rnd/src/openrouter_client.py` в `core/extractor/` с адаптацией под полную онтологию
@@ -96,7 +96,7 @@ Plans:
 
 | Фаза | Планов выполнено | Статус | Завершена |
 |------|-----------------|--------|-----------|
-| 4. PDF-парсер | 1/2 | In Progress | — |
+| 4. PDF-парсер | 2/2 | Complete | 2026-06-11 |
 | 5. LLM-экстрактор | 0/2 | Pending | — |
 | 6. Graph Writer | 0/2 | Pending | — |
 | 7. Ingestion API | 0/3 | Pending | — |

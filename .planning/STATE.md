@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Ingestion Pipeline
 status: in_progress
-last_updated: "2026-06-11T15:09:00Z"
+last_updated: "2026-06-11T15:19:00Z"
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 9
-  completed_plans: 1
-  percent: 11
+  completed_plans: 2
+  percent: 22
 ---
 
 # Состояние проекта
@@ -23,13 +23,13 @@ progress:
 
 ## Текущая позиция
 
-Фаза: 4 — PDF-парсер (выполняется)
-План: 04-01 ✅ ВЫПОЛНЕН → следующий: 04-02
-Статус: Executing — план 04-01 завершён, 04-02 готов к старту
-Последняя активность: 2026-06-11 — Выполнен план 04-01 (core/parser, Settings.storage_root, unit tests)
-Resume: .planning/phases/04-pdf/04-02-PLAN.md
+Фаза: 4 — PDF-парсер ✅ ЗАВЕРШЕНА (оба плана выполнены)
+Следующая фаза: 5 — LLM-экстрактор
+Статус: Executing — фаза 4 завершена, переход к фазе 5
+Последняя активность: 2026-06-11 — Выполнен план 04-02 (Document MERGE, D-09, PARSE-03)
+Resume: .planning/phases/05-*/05-01-PLAN.md
 
-Прогресс: [█░░░░░░░░░] 11%
+Прогресс: [██░░░░░░░░] 22%
 
 ## Накопленный контекст
 
@@ -45,6 +45,10 @@ Resume: .planning/phases/04-pdf/04-02-PLAN.md
 - storage_root: Path = Path("storage") в Settings, env STORAGE_ROOT ✓
 - ParseResult.file_uri / text_uri — относительные пути (не абсолютные) ✓
 - openrouter_api_key добавлен в Settings как str | None для совместимости с .env ✓
+- Document MERGE: SET (не ON CREATE SET) — повторный парсинг обновляет тот же узел, без дублей ✓
+- is_connected guard перед session() — graceful degradation при недоступном Neo4j ✓
+- corpus smoke-тест работает с db=None — независим от инфры ✓
+- datetime.UTC alias (Python 3.11+) вместо timezone.utc ✓
 
 ### Ожидающие задачи
 
@@ -65,5 +69,5 @@ Resume: .planning/phases/04-pdf/04-02-PLAN.md
 ## Непрерывность сессий
 
 Последняя сессия: 2026-06-11
-Остановились на: План 04-01 выполнен — core/parser готов, unit тесты зелёные
-Файл возобновления: .planning/phases/04-pdf/04-02-PLAN.md
+Остановились на: План 04-02 выполнен — Document MERGE, D-09 поля, PARSE-03 integration tests
+Файл возобновления: .planning/phases/05-*/05-01-PLAN.md
