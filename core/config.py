@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -25,6 +26,18 @@ class Settings(BaseSettings):
         description="Loguru log level: TRACE/DEBUG/INFO/WARNING/ERROR",
     )
     log_json: bool = Field(default=False, description="LOG_JSON=true -> serialize=True in loguru")
+
+    # Document storage
+    storage_root: Path = Field(
+        default=Path("storage"),
+        description="Root directory for document storage (relative to cwd or absolute); env STORAGE_ROOT",
+    )
+
+    # R&D / external LLM (optional — used by rnd/ scripts only)
+    openrouter_api_key: str | None = Field(
+        default=None,
+        description="OpenRouter API key for R&D LLM scripts; env OPENROUTER_API_KEY",
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",
