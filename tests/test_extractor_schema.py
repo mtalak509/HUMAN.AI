@@ -168,3 +168,48 @@ class TestParsedJsonEquivalence:
         for exp in candidate.experiences:
             expected = exp.to_date is None
             assert exp.is_current is expected
+
+
+# ---------------------------------------------------------------------------
+# Task 2: Settings extractor config defaults
+# ---------------------------------------------------------------------------
+
+
+class TestExtractorSettingsDefaults:
+    """Verify Settings contains extractor config knobs with smoke-test defaults."""
+
+    def test_extractor_model_default(self):
+        from core.config import get_settings
+
+        get_settings.cache_clear()
+        s = get_settings()
+        assert s.extractor_model == "qwen/qwen3.6-plus"
+
+    def test_openrouter_base_url_default(self):
+        from core.config import get_settings
+
+        get_settings.cache_clear()
+        s = get_settings()
+        assert s.openrouter_base_url == "https://openrouter.ai/api/v1"
+
+    def test_extractor_timeout_default(self):
+        from core.config import get_settings
+
+        get_settings.cache_clear()
+        s = get_settings()
+        assert s.extractor_timeout == 60.0
+
+    def test_extractor_temperature_default(self):
+        from core.config import get_settings
+
+        get_settings.cache_clear()
+        s = get_settings()
+        assert s.extractor_temperature == 0.0
+
+    def test_openrouter_api_key_not_duplicated(self):
+        """openrouter_api_key must appear exactly once in Settings."""
+        from core.config import Settings
+
+        # Only one field named openrouter_api_key
+        matching = [k for k in Settings.model_fields if k == "openrouter_api_key"]
+        assert len(matching) == 1

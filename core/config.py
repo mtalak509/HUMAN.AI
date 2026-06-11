@@ -39,6 +39,24 @@ class Settings(BaseSettings):
         description="OpenRouter API key for R&D LLM scripts; env OPENROUTER_API_KEY",
     )
 
+    # LLM extractor config (Phase 5)
+    extractor_model: str = Field(
+        default="qwen/qwen3.6-plus",
+        description="OpenRouter model id for the LLM extractor; env EXTRACTOR_MODEL",
+    )
+    openrouter_base_url: str = Field(
+        default="https://openrouter.ai/api/v1",
+        description="OpenRouter API base URL; env OPENROUTER_BASE_URL",
+    )
+    extractor_timeout: float = Field(
+        default=60.0,
+        description="LLM call timeout in seconds; env EXTRACTOR_TIMEOUT",
+    )
+    extractor_temperature: float = Field(
+        default=0.0,
+        description="LLM sampling temperature; env EXTRACTOR_TEMPERATURE",
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
