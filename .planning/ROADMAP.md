@@ -50,8 +50,8 @@ Plans:
 **Plans:** 2 плана
 
 Plans:
-- [ ] 05-01: `core/extractor/schema.py` — ExtractedCandidate Pydantic-схема, адаптированная под онтологию графа
-- [ ] 05-02: `core/extractor/llm.py` — Extractor класс, перенос логики из rnd/src/openrouter_client.py
+- [ ] 05-01-PLAN.md — `core/extractor/schema.py` (ExtractedCandidate + is_current + провенанс) + конфиг-кнобы экстрактора в Settings; equivalence-валидация 5 эталонных parsed.json (Wave 1)
+- [ ] 05-02-PLAN.md — `core/extractor/llm.py` (Extractor: async extract + json_object + 1 retry + штамповка провенанса) + live equivalence integration-тест (Wave 2)
 
 ### Phase 6: Graph Writer
 **Goal:** Система принимает ExtractedCandidate и записывает полный граф кандидата в Neo4j через MERGE — с Fact-провенансом и денормализованными прямыми связями
