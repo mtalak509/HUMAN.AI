@@ -162,6 +162,25 @@ class GraphWriter:
             skills |= {s.strip() for s in exp.skills_mentioned}
         skills.discard("")  # remove empty strings if any
 
+        # Derive each experience's normalized fields + deterministic id ONCE,
+        # so the experience loop (4) and the worked_at Fact loop (6) stay in sync
+        # (WR-02): skip experiences whose company/role are blank after strip —
+        # they cannot form a meaningful node and would create garbage shared
+        # Company/Role nodes keyed on "".
+        processed_exps: list[tuple] = []
+        for exp in candidate.experiences:
+            company = exp.company.strip()
+            role = exp.role.strip()
+            if not company or not role:
+                logger.warning(
+                    "graph_writer: skipping experience with blank company/role "
+                    "id={}",
+                    candidate_id,
+                )
+                continue
+            exp_id = self._experience_id(document_id, company, role, exp.from_date)
+            processed_exps.append((exp, exp_id, company, role))
+
         # ------------------------------------------------------------------
         # 1. Candidate node
         # ------------------------------------------------------------------
@@ -199,14 +218,10 @@ class GraphWriter:
         # ------------------------------------------------------------------
         # 4. Experiences
         # ------------------------------------------------------------------
-        for exp in candidate.experiences:
-            exp_id = self._experience_id(
-                document_id, exp.company, exp.role, exp.from_date
-            )
-
+        for exp, exp_id, company, role in processed_exps:
             # Nodes
-            await tx.run(MERGE_COMPANY, name=exp.company, industry=None)
-            await tx.run(MERGE_ROLE, title=exp.role, seniority=None)
+            await tx.run(MERGE_COMPANY, name=company, industry=None)
+            await tx.run(MERGE_ROLE, title=role, seniority=None)
             await tx.run(
                 MERGE_EXPERIENCE,
                 id=exp_id,
@@ -217,8 +232,8 @@ class GraphWriter:
 
             # Edges
             await tx.run(LINK_HAS_EXPERIENCE, c_id=candidate_id, e_id=exp_id)
-            await tx.run(LINK_AT_COMPANY, e_id=exp_id, name=exp.company)
-            await tx.run(LINK_AS_ROLE, e_id=exp_id, title=exp.role)
+            await tx.run(LINK_AT_COMPANY, e_id=exp_id, name=company)
+            await tx.run(LINK_AS_ROLE, e_id=exp_id, title=role)
 
             # USED_SKILL edges (D-06): skills_mentioned in this role
             for s in exp.skills_mentioned:
@@ -263,17 +278,18 @@ class GraphWriter:
             await tx.run(LINK_EXTRACTED_FROM, f_id=f_id, d_id=document_id)
             await tx.run(LINK_SUPPORTS_SKILL, f_id=f_id, name=skill)
 
-        # One Fact per experience (D-03): predicate="worked_at", SUPPORTS→Experience
-        for exp in candidate.experiences:
-            exp_id = self._experience_id(
-                document_id, exp.company, exp.role, exp.from_date
-            )
-            f_id = self._fact_id(document_id, "worked_at", exp.company)
+        # One Fact per experience (D-03): predicate="worked_at", SUPPORTS→Experience.
+        # WR-01: the Fact id is keyed on exp_id (company|role|from_date), NOT on the
+        # company name alone — otherwise two experiences at the same company collide
+        # into one Fact node that supports two experiences with overwritten props.
+        # Fact.value stays the human-readable company name for queryability.
+        for exp, exp_id, company, role in processed_exps:
+            f_id = self._fact_id(document_id, "worked_at", exp_id)
             await tx.run(
                 MERGE_FACT,
                 id=f_id,
                 predicate="worked_at",
-                value=exp.company,
+                value=company,
                 confidence=None,          # D-02: null, never a float
                 model_version=candidate.model_version,
                 is_current=True,

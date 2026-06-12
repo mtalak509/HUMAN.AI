@@ -18,7 +18,11 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from core.extractor.schema import Contact, Education, Experience, ExtractedCandidate
-from core.writer.cypher import MERGE_FACT
+from core.writer.cypher import (
+    LINK_SUPPORTS_EXPERIENCE,
+    MERGE_EXPERIENCE,
+    MERGE_FACT,
+)
 from core.writer.graph_writer import GraphWriter
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -224,3 +228,92 @@ async def test_one_fact_per_unique_skill() -> None:
     assert len(has_skill_fact_ids) == len(expected_unique_skills), (
         f"Expected {len(expected_unique_skills)} has_skill Facts, got {len(has_skill_fact_ids)}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Test 5: worked_at Fact does NOT collide for two roles at the same company (WR-01)
+# ---------------------------------------------------------------------------
+
+
+def _candidate_two_roles_same_company(doc_id: str = "docabc") -> ExtractedCandidate:
+    """Two experiences at the SAME company, different role + from_date (a promotion)."""
+    return ExtractedCandidate(
+        document_id=doc_id,
+        model_version="test-model",
+        full_name="Test User",
+        experiences=[
+            Experience(from_date="2018-01", to_date="2021-01", company="Acme Corp",
+                       role="Junior Engineer", skills_mentioned=[]),
+            Experience(from_date="2021-02", to_date=None, company="Acme Corp",
+                       role="Senior Engineer", skills_mentioned=[]),
+        ],
+        skills=[],
+    )
+
+
+@pytest.mark.asyncio
+async def test_worked_at_fact_no_collision_same_company() -> None:
+    """WR-01: two experiences at one company → two distinct worked_at Facts, each
+    supporting its own Experience node (no id collision, no overwritten provenance)."""
+    cand = _candidate_two_roles_same_company()
+
+    mock_db, mock_tx = _build_mock_db_with_capturing_tx()
+    await GraphWriter(db=mock_db).write(cand, "docabc")
+
+    worked_at_fact_ids = []
+    supports_exp_e_ids = []
+    for call in mock_tx.run.call_args_list:
+        args, kwargs = call
+        stmt = args[0] if args else kwargs.get("query", "")
+        if stmt == MERGE_FACT and kwargs.get("predicate") == "worked_at":
+            worked_at_fact_ids.append(kwargs["id"])
+        if stmt == LINK_SUPPORTS_EXPERIENCE:
+            supports_exp_e_ids.append(kwargs["e_id"])
+
+    # Two experiences → two distinct worked_at Fact ids (the bug produced one)
+    assert len(worked_at_fact_ids) == 2, worked_at_fact_ids
+    assert len(set(worked_at_fact_ids)) == 2, (
+        f"worked_at Fact ids collided: {worked_at_fact_ids}"
+    )
+    # Each Fact supports a distinct Experience
+    assert len(set(supports_exp_e_ids)) == 2, supports_exp_e_ids
+
+
+# ---------------------------------------------------------------------------
+# Test 6: experience with blank company/role is skipped (WR-02)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_blank_company_experience_skipped() -> None:
+    """WR-02: an experience whose company is blank after strip creates no
+    Experience node and no worked_at Fact — no garbage shared nodes keyed on ''."""
+    cand = ExtractedCandidate(
+        document_id="docabc",
+        model_version="test-model",
+        full_name="Test User",
+        experiences=[
+            Experience(from_date="2020-01", to_date=None, company="   ",
+                       role="Engineer", skills_mentioned=[]),
+            Experience(from_date="2021-01", to_date=None, company="Acme Corp",
+                       role="Engineer", skills_mentioned=[]),
+        ],
+        skills=[],
+    )
+
+    mock_db, mock_tx = _build_mock_db_with_capturing_tx()
+    await GraphWriter(db=mock_db).write(cand, "docabc")
+
+    merge_exp_calls = 0
+    worked_at_facts = 0
+    for call in mock_tx.run.call_args_list:
+        args, kwargs = call
+        stmt = args[0] if args else kwargs.get("query", "")
+        if stmt == MERGE_EXPERIENCE:
+            merge_exp_calls += 1
+        if stmt == MERGE_FACT and kwargs.get("predicate") == "worked_at":
+            worked_at_facts += 1
+
+    # Only the valid experience is written
+    assert merge_exp_calls == 1, f"Expected 1 Experience node, got {merge_exp_calls}"
+    assert worked_at_facts == 1, f"Expected 1 worked_at Fact, got {worked_at_facts}"

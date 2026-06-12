@@ -12,9 +12,14 @@ files_reviewed_list:
 findings:
   critical: 0
   warning: 4
+  warning_resolved: 2
+  warning_open: 2
   info: 3
   total: 7
 status: issues_found
+resolved:
+  - WR-01
+  - WR-02
 ---
 
 # Phase 6: Code Review Report
@@ -42,7 +47,14 @@ suite.
 
 ## Warnings
 
-### WR-01: `worked_at` Fact id collides across two experiences at the same company
+### WR-01: `worked_at` Fact id collides across two experiences at the same company  — ✅ RESOLVED 2026-06-12
+
+**Resolution:** `worked_at` Fact id now keyed on `exp_id` (company|role|from_date) via
+`_fact_id(document_id, "worked_at", exp_id)`; `Fact.value` stays the readable company
+name. Experiences are derived once into a shared `processed_exps` list so the experience
+loop and the worked_at loop use identical ids. Regression test
+`test_worked_at_fact_no_collision_same_company` asserts two distinct Fact ids + two
+distinct SUPPORTS edges for two roles at one company.
 
 **File:** `core/writer/graph_writer.py:267-284`
 **Issue:** `_fact_id(document_id, "worked_at", exp.company)` keys the Fact only on
@@ -65,7 +77,13 @@ f_id = self._fact_id(document_id, "worked_at", exp_id)  # 1 Fact per experience
 Add a unit test with two experiences at the same company asserting two distinct
 `worked_at` Fact ids and one SUPPORTS edge each.
 
-### WR-02: Empty-string natural keys create garbage nodes
+### WR-02: Empty-string natural keys create garbage nodes  — ✅ RESOLVED 2026-06-12 (experiences)
+
+**Resolution:** Experiences whose `company` or `role` is blank after `.strip()` are now
+skipped in the `processed_exps` build step (logged warning), so no `Company`/`Role`/
+`Experience` nodes keyed on `""` are created and no orphan `worked_at` Fact is emitted.
+Regression test `test_blank_company_experience_skipped`. NOTE: `edu.institution` blank-guard
+was NOT added — education has no blank guard yet (left open, low priority).
 
 **File:** `core/writer/graph_writer.py:208-209, 220-221, 233-237`
 **Issue:** `exp.company`, `exp.role`, and `edu.institution` are typed `str` with no
