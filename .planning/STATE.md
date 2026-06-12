@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
-status: Executing Phase 6
-last_updated: "2026-06-12T18:29:19Z"
+status: Executing Phase 7
+last_updated: "2026-06-12T18:44:00Z"
 progress:
   total_phases: 4
-  completed_phases: 2
-  total_plans: 6
-  completed_plans: 5
-  percent: 83
+  completed_phases: 3
+  total_plans: 7
+  completed_plans: 6
+  percent: 86
 ---
 
 # Состояние проекта
@@ -23,12 +23,12 @@ progress:
 
 ## Текущая позиция
 
-Фаза: 6 — Graph Writer (план 01 завершён)
-Статус: 06-01 выполнен — core/writer/cypher.py (19 Cypher-констант) + core/writer/__init__.py; следующий шаг: план 06-02 (GraphWriter service)
-Последняя активность: 2026-06-12 — 06-01: Cypher statement library завершена (WRITE-01/02/03)
-Resume: .planning/phases/06-graph-writer/06-01-SUMMARY.md
+Фаза: 7 — Ingestion API (фаза 6 завершена)
+Статус: 06-02 выполнен — GraphWriter service (core/writer/graph_writer.py) + unit/integration тесты; WRITE-01/02/03/04 закрыты; следующий шаг: фаза 07 (API + Celery pipeline)
+Последняя активность: 2026-06-12 — 06-02: GraphWriter завершён (WRITE-01/02/03/04)
+Resume: .planning/phases/06-graph-writer/06-02-SUMMARY.md
 
-Прогресс: [████████░░] 83%
+Прогресс: [█████████░] 86%
 
 ## Накопленный контекст
 
@@ -57,6 +57,11 @@ Resume: .planning/phases/06-graph-writer/06-01-SUMMARY.md
 - cypher.py — единственная Cypher-библиотека GraphWriter: все запросы параметризованы ($param), plain SET (не ON CREATE SET), Document всегда MATCH (не MERGE) ✓
 - USED_SKILL (D-06) — новый тип ребра Experience->Skill без constraint (рёбра не имеют uniqueness-ключей) ✓
 - LINK_SUPPORTS_SKILL / LINK_SUPPORTS_EXPERIENCE — разные константы (D-03: has_skill→Skill, worked_at→Experience) ✓
+- candidate_id = document_id (D-01) — sha1 helpers для experience/education/contact/fact ids ✓
+- Fact.confidence = None (D-02) — grep подтверждает: нет float-литералов ✓
+- Один Fact на уникальный навык (D-07) — по объединённому множеству, без дублей ✓
+- GraphWriter DI-конструктор (db=None safe) + is_connected guard + graceful degradation (T-06-07) ✓
+- execute_write + одна транзакция для атомарности; Document только MATCH-ится (T-06-02) ✓
 
 ### Ожидающие задачи
 
@@ -77,5 +82,5 @@ Resume: .planning/phases/06-graph-writer/06-01-SUMMARY.md
 ## Непрерывность сессий
 
 Последняя сессия: 2026-06-12
-Остановились на: 06-01 выполнен — Cypher statement library (core/writer/cypher.py + __init__.py)
-Файл возобновления: .planning/phases/06-graph-writer/06-01-SUMMARY.md
+Остановились на: 06-02 выполнен — GraphWriter service + unit/integration тесты (WRITE-01/02/03/04 закрыты)
+Файл возобновления: .planning/phases/06-graph-writer/06-02-SUMMARY.md

@@ -14,7 +14,7 @@ Milestone v1.1 — первый полный ingestion-пайплайн: PDF →
 
 - [x] **Фаза 4: PDF-парсер** — `core/parser/` с pypdf-извлечением (каскад на pdfplumber отложен — D-01), object storage, Document-узел в графе ✅ 2026-06-11
 - [x] **Фаза 5: LLM-экстрактор** — `core/extractor/` на базе `rnd/src/`, адаптированный под полную онтологию ✅ 2026-06-11
-- [ ] **Фаза 6: Graph Writer** — `core/writer/` — ExtractedFact[] → Cypher MERGE → Neo4j с Fact-провенансом
+- [x] **Фаза 6: Graph Writer** — `core/writer/` — ExtractedFact[] → Cypher MERGE → Neo4j с Fact-провенансом ✅ 2026-06-12
 - [ ] **Фаза 7: Ingestion API** — `POST /documents`, `GET /documents/{id}`, Celery-task, сквозная интеграция
 
 ## Детали фаз
@@ -72,7 +72,7 @@ Plans:
 - [x] 06-01-PLAN.md — `core/writer/cypher.py` — параметризованная Cypher-библиотека: MERGE 8 типов узлов + денорм-рёбра + Fact-триплет (HAS_FACT/EXTRACTED_FROM/SUPPORTS) + новое ребро USED_SKILL (D-06) — WRITE-01/02/03 ✅ 2026-06-12
 
 **Wave 2** *(blocked on 06-01)*
-- [ ] 06-02-PLAN.md — `core/writer/graph_writer.py` — GraphWriter класс: детерминированные ID (D-01), skill union (D-04/05), Fact-провенанс (D-02/03/07), одна транзакция, graceful degradation + unit/integration тесты с идемпотентностью WRITE-04
+- [x] 06-02-PLAN.md — `core/writer/graph_writer.py` — GraphWriter класс: детерминированные ID (D-01), skill union (D-04/05), Fact-провенанс (D-02/03/07), одна транзакция, graceful degradation + unit/integration тесты с идемпотентностью WRITE-04 ✅ 2026-06-12
 
 ### Phase 7: Ingestion API
 **Goal:** Полный ingestion-пайплайн доступен через HTTP API — `POST /documents` запускает Celery-задачу, `GET /documents/{id}` отдаёт статус; сквозной тест: PDF через API → кандидат в графе
@@ -102,5 +102,5 @@ Plans:
 |------|-----------------|--------|-----------|
 | 4. PDF-парсер | 2/2 | Complete | 2026-06-11 |
 | 5. LLM-экстрактор | 2/2 | Complete | 2026-06-11 |
-| 6. Graph Writer | 1/2 | In Progress | — |
+| 6. Graph Writer | 2/2 | Complete | 2026-06-12 |
 | 7. Ingestion API | 0/3 | Pending | — |
