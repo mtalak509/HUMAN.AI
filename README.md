@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/assets/logo.svg" alt="HUMAN.AI logo" width="320">
+
 # HUMAN.AI
 
 **Talent Intelligence Platform** — your company's AI memory of every candidate it has ever met.
