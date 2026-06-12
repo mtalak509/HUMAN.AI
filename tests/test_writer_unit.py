@@ -22,6 +22,7 @@ from core.writer.cypher import (
     LINK_SUPPORTS_EXPERIENCE,
     MERGE_EXPERIENCE,
     MERGE_FACT,
+    MERGE_SKILL,
 )
 from core.writer.graph_writer import GraphWriter
 
@@ -117,28 +118,39 @@ def test_ids_deterministic() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_skill_union_dedup() -> None:
-    """Union of top-level skills + skills_mentioned: strip, dedup, case preserved."""
+@pytest.mark.asyncio
+async def test_skill_union_dedup() -> None:
+    """Union of top-level skills + skills_mentioned: strip, dedup, case preserved.
+
+    Drives the REAL GraphWriter via the capturing-tx mock and asserts on the
+    `name=` arguments actually passed to MERGE_SKILL — not a re-implementation of
+    the union logic (WR-04). If the writer's union logic regresses, this fails.
+    """
     cand = _make_candidate(
         top_skills=["Python", "  Python  ", "FastAPI"],
         exp_skills=["Python", "Neo4j"],
     )
 
-    # Replicate the writer's union logic exactly as in graph_writer.py
-    skills: set[str] = {s.strip() for s in cand.skills}
-    for exp in cand.experiences:
-        skills |= {s.strip() for s in exp.skills_mentioned}
-    skills.discard("")
+    mock_db, mock_tx = _build_mock_db_with_capturing_tx()
+    await GraphWriter(db=mock_db).write(cand, "docabc")
 
-    assert skills == {"Python", "FastAPI", "Neo4j"}, (
-        f"Expected {{'Python', 'FastAPI', 'Neo4j'}}, got {skills}"
+    # Collect the skill names the writer actually MERGEd
+    merged_skill_names = [
+        kwargs["name"]
+        for (args, kwargs) in mock_tx.run.call_args_list
+        if (args[0] if args else kwargs.get("query", "")) == MERGE_SKILL
+    ]
+
+    assert set(merged_skill_names) == {"Python", "FastAPI", "Neo4j"}, (
+        f"Expected {{'Python', 'FastAPI', 'Neo4j'}}, got {set(merged_skill_names)}"
     )
-    # Case preservation: "Python" not "python"
-    assert "Python" in skills
-    # "  Python  " collapses to "Python" (no duplicate)
-    assert len([s for s in skills if s.lower() == "python"]) == 1
-    # No empty strings
-    assert "" not in skills
+    # No duplicate MERGE_SKILL calls ("  Python  " collapses to "Python")
+    assert len(merged_skill_names) == len(set(merged_skill_names)), (
+        f"Duplicate MERGE_SKILL calls: {merged_skill_names}"
+    )
+    # Case preserved ("Python" not "python"); no empty strings
+    assert "Python" in merged_skill_names
+    assert "" not in merged_skill_names
 
 
 # ---------------------------------------------------------------------------

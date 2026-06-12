@@ -12,14 +12,15 @@ files_reviewed_list:
 findings:
   critical: 0
   warning: 4
-  warning_resolved: 2
-  warning_open: 2
+  warning_resolved: 3
+  warning_open: 1
   info: 3
   total: 7
 status: issues_found
 resolved:
   - WR-01
   - WR-02
+  - WR-04
 ---
 
 # Phase 6: Code Review Report
@@ -119,7 +120,13 @@ keeping plain `SET` for mutable fields (predicate/value/model_version/is_current
 document explicitly that `extracted_at` means "last write time" not "first extraction
 time."
 
-### WR-04: Unit suite re-implements the union logic instead of asserting the writer's output
+### WR-04: Unit suite re-implements the union logic instead of asserting the writer's output  — ✅ RESOLVED 2026-06-12
+
+**Resolution:** `test_skill_union_dedup` is now async and drives the real `GraphWriter`
+via `_build_mock_db_with_capturing_tx`, asserting on the `name=` arguments actually
+passed to `MERGE_SKILL` (union, strip-collapse, case preserved, no dup/empty). The
+duplicated union logic in the test body was removed — a regression in the writer's
+union now fails this test.
 
 **File:** `tests/test_writer_unit.py:116-137`
 **Issue:** `test_skill_union_dedup` copy-pastes the union/strip/discard logic from
