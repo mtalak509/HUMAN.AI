@@ -17,9 +17,16 @@ Talent Intelligence Platform backend.
 
 ## Project Structure
 
-- `api/` - FastAPI приложение и роуты
-- `core/` - конфигурация, логирование, доступ к графовой БД
-- `tests/` - тесты (добавляются в следующих фазах)
+- `api/` - FastAPI приложение, lifespan, `/health`, DI-хелперы
+- `core/` - конфигурация, логирование и доменная логика:
+  - `config.py` / `logger.py` - настройки (pydantic-settings) и Loguru
+  - `database/` - `GraphDB` (async-обёртка Neo4j) + миграции схемы
+  - `schemas/` - Pydantic-онтология (12 типов узлов)
+  - `parser/` - PDF-парсер: текст → файлы → MERGE Document (Фаза 4)
+  - `extractor/` - LLM-экстрактор: текст → `ExtractedCandidate` (Фаза 5)
+- `scripts/` - CLI: `migrate.py`, `seed.py`, `queries.py`
+- `tests/` - unit + integration тесты (часть пропускается без инфры/ключа)
+- `rnd/` - R&D-код и артефакты smoke-теста экстрактора
 - `.planning/` - артефакты планирования и отчеты по фазам
 
 ## Environment Configuration
@@ -36,6 +43,9 @@ cp .env.example .env
 
 - `NEO4J_PASSWORD` - пароль Neo4j
 
+Для LLM-экстрактора (Фаза 5) задайте `OPENROUTER_API_KEY` — без него
+экстрактор не работает, а его live-тест пропускается.
+
 Остальные значения по умолчанию:
 
 - `NEO4J_URI=bolt://localhost:7687`
@@ -43,6 +53,13 @@ cp .env.example .env
 - `REDIS_URL=redis://localhost:6379`
 - `LOG_LEVEL=INFO`
 - `LOG_JSON=false`
+- `STORAGE_ROOT=storage` - корень хранилища документов
+- `EXTRACTOR_MODEL=qwen/qwen3.6-plus` - модель OpenRouter для экстрактора
+- `OPENROUTER_BASE_URL=https://openrouter.ai/api/v1`
+- `EXTRACTOR_TIMEOUT=60.0` / `EXTRACTOR_TEMPERATURE=0.0`
+
+Секреты (`NEO4J_PASSWORD`, `OPENROUTER_API_KEY`) читаются только из `.env`
+или окружения через `Settings`, в логи не попадают.
 
 ## Run Locally (without Docker app container)
 
@@ -100,6 +117,17 @@ curl http://localhost:8000/health
 - Конфигурируется в `core/logger.py` через `setup_logging(level, json_mode)`
 - Обычный режим: цветной формат в stderr
 - JSON-режим: включается через `LOG_JSON=true`
+
+## Tests
+
+```bash
+pytest                              # все тесты
+pytest tests/test_health.py        # unit, без инфры
+pytest tests/test_parser_unit.py   # парсер, без инфры
+```
+
+Тесты, требующие инфраструктуры (Neo4j) или `OPENROUTER_API_KEY`,
+пропускаются автоматически при их отсутствии.
 
 ## Notes
 

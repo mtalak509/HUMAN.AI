@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -25,6 +26,36 @@ class Settings(BaseSettings):
         description="Loguru log level: TRACE/DEBUG/INFO/WARNING/ERROR",
     )
     log_json: bool = Field(default=False, description="LOG_JSON=true -> serialize=True in loguru")
+
+    # Document storage
+    storage_root: Path = Field(
+        default=Path("storage"),
+        description="Root directory for document storage (relative to cwd or absolute)",
+    )
+
+    # R&D / external LLM (optional — used by rnd/ scripts only)
+    openrouter_api_key: str | None = Field(
+        default=None,
+        description="OpenRouter API key for R&D LLM scripts; env OPENROUTER_API_KEY",
+    )
+
+    # LLM extractor config (Phase 5)
+    extractor_model: str = Field(
+        default="qwen/qwen3.6-plus",
+        description="OpenRouter model id for the LLM extractor; env EXTRACTOR_MODEL",
+    )
+    openrouter_base_url: str = Field(
+        default="https://openrouter.ai/api/v1",
+        description="OpenRouter API base URL; env OPENROUTER_BASE_URL",
+    )
+    extractor_timeout: float = Field(
+        default=60.0,
+        description="LLM call timeout in seconds; env EXTRACTOR_TIMEOUT",
+    )
+    extractor_temperature: float = Field(
+        default=0.0,
+        description="LLM sampling temperature; env EXTRACTOR_TEMPERATURE",
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",

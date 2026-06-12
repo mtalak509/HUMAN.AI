@@ -85,6 +85,10 @@ class Document(BaseModel):
     file_uri: str | None = None
     ingested_at: datetime | None = None
     created_at: datetime | None = None
+    # --- added in Phase 4 (PDF parser) ---
+    text_uri: str | None = None            # path to extracted .md text file
+    parser_version: str | None = None      # e.g. "pypdf-v1"
+    extraction_status: str | None = None   # "ok" | "empty"
 
 
 class Fact(BaseModel):

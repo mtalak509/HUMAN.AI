@@ -1,81 +1,105 @@
-# Требования: HUMAN.AI — Phase 0
+# Requirements: HUMAN.AI
 
-**Определены:** 2026-05-03
-**Ключевая ценность:** Локальный стек поднимается одной командой, в Neo4j лежат тестовые кандидаты, базовые Cypher-запросы работают
+**Defined:** 2026-06-03
+**Milestone:** v1.1 — Ingestion Pipeline
+**Core Value:** Загрузил PDF-резюме → кандидат появился в графе с experience, education, skills — без ручного ввода.
 
-## v1 Требования
+## v1.0 Requirements (выполнено)
 
 ### Инфраструктура
 
-- [ ] **INFRA-01**: Разработчик запускает `uvicorn api.main:app --reload` и получает ответ от GET /health (200 OK, {"status": "ok"})
-- [ ] **INFRA-02**: Все настройки подключений (Neo4j, Qdrant, Redis) читаются из .env через `core/config.py` (pydantic-settings BaseSettings)
-- [ ] **INFRA-03**: Приложение использует loguru для структурированного логирования: цветной вывод в консоль, JSON-сериализация при необходимости — уровень логирования конфигурируется через Settings.log_level
-- [ ] **INFRA-04**: `docker compose up -d` поднимает Neo4j, Qdrant, Redis и FastAPI-сервис вместе; FastAPI-контейнер проходит health-check
+- [x] **INFRA-01**: GET /health возвращает 200 OK — Фаза 1
+- [x] **INFRA-02**: Настройки читаются из .env через pydantic-settings — Фаза 1
+- [x] **INFRA-03**: loguru, цветной вывод, LOG_JSON для прода — Фаза 1
+- [x] **INFRA-04**: docker compose up -d поднимает весь стек — Фаза 1
+- [x] **ONTO-01**: 12 Pydantic-моделей онтологии — Фаза 2
+- [x] **ONTO-02**: Cypher-миграции, constraints и indexes — Фаза 2
+- [x] **ONTO-03**: Async Neo4j driver, ping(), context-manager сессий — Фаза 1
+- [x] **SEED-01**: scripts/seed.py — кандидат c-001 с полным графом — Фаза 3
+- [x] **SEED-02**: scripts/queries.py — поиск по навыку/компании/статусу — Фаза 3
+- [x] **TEST-01**: tests/conftest.py — session-scoped fixtures — Фаза 3
+- [x] **TEST-02**: tests/test_infra.py — smoke-тесты Neo4j/Qdrant/Redis — Фаза 3
 
-### Онтология
+## v1.1 Requirements (активные)
 
-- [x] **ONTO-01**: Все 12 типов узлов онтологии описаны как Pydantic BaseModel в `core/models.py`: Candidate, Contact, Skill, Role, Company, Experience, Education, Vacancy, Status, HRNote, Document, Fact — с полями из `core_architecture.md` раздел 4.2
-- [x] **ONTO-02**: Скрипт миграции `scripts/migrate.py` применяет к Neo4j все constraints (уникальность ключевых полей) и indexes (быстрый поиск) — идемпотентный, безопасен для повторного запуска
-- [ ] **ONTO-03**: `core/graph.py` предоставляет async Neo4j driver, метод ping(), context-manager для сессий — используется миграцией и будущими компонентами
+### Парсер (PDF)
 
-### Тестовые данные
+- [x] **PARSE-01**: Система принимает PDF-файл и извлекает plain text (pypdf-only за seam'ом; pdfplumber-каскад отложен — D-01) ✅ Фаза 4
+- [x] **PARSE-02**: Система сохраняет исходный PDF и текст на диск (`{storage_root}/documents/{document_id}/`) ✅ Фаза 4
+- [x] **PARSE-03**: Система создаёт `Document`-узел в Neo4j (file_uri, text_uri, parser_version, extraction_status, ingested_at) ✅ Фаза 4
 
-- [ ] **SEED-01**: `scripts/seed.py` загружает в Neo4j 1 тестового кандидата с полным набором связей: Candidate → Skills, Experience (с Company, Role), Education, HRNote, Document, Fact — через идемпотентные MERGE-запросы
-- [ ] **SEED-02**: `scripts/queries.py` содержит задокументированные примеры Cypher-запросов: поиск кандидатов по навыку, по опыту в компании, по статусу в вакансии — каждый запрос возвращает корректные данные на seed-наборе
+### LLM-экстрактор
 
-### Eval-харнес
+- [x] **EXTR-01**: Система принимает plain text и возвращает структурированный Resume-объект через LLM ✅ Фаза 5
+- [x] **EXTR-02**: Режим json_object + Pydantic-валидация + 1 retry при ValidationError ✅ Фаза 5
+- [x] **EXTR-03**: Schema охватывает: full_name, contacts, experiences (даты/компания/роль/навыки), education, skills ✅ Фаза 5
 
-- [ ] **TEST-01**: `tests/conftest.py` предоставляет pytest-фикстуры: `settings`, `neo4j_driver`, `qdrant_client` — доступны всем тестам без повторной инициализации
-- [ ] **TEST-02**: `tests/test_infra.py` содержит smoke-тесты: Neo4j ping (RETURN 1), Qdrant /health, Redis ping — все проходят при поднятом стеке (`pytest tests/test_infra.py`)
+### Graph Writer
 
-## v2 Требования
+- [ ] **WRITE-01**: Graph Writer создаёт Candidate + все связанные узлы через MERGE
+- [ ] **WRITE-02**: Graph Writer создаёт Fact-узлы с провенансом (ссылка на Document)
+- [ ] **WRITE-03**: Денормализация: прямые связи Candidate→Skill для скорости поиска
+- [ ] **WRITE-04**: Повторный запуск на том же документе не создаёт дублей
 
-### Наблюдаемость
+### API и Pipeline
 
-- **OBS-01**: Correlation ID прокидывается через все компоненты pipeline (request → Celery → writer)
-- **OBS-02**: Метрики latency для каждого шага ingestion (parse, extract, resolve, write) пишутся в лог
-- **OBS-03**: Простой dashboard: количество кандидатов, документов, фактов в графе
+- [ ] **API-01**: POST /documents принимает PDF, возвращает document_id и task_id
+- [ ] **API-02**: GET /documents/{id} возвращает статус (queued/parsing/extracting/writing/written/failed)
+- [ ] **PIPE-01**: Полный цикл parse→extract→write выполняется асинхронно через Celery
 
-### Вспомогательные скрипты
+## v2 Requirements (отложено)
 
-- **UTIL-01**: `scripts/reset.py` — очистка Neo4j (удаление всех узлов) для чистого повторного запуска seed
-- **UTIL-02**: `scripts/check_ontology.py` — проверка, что все constraints и indexes применены
+### Парсер (расширение)
+- **PARSE-04**: DOCX-поддержка
+- **PARSE-05**: OCR fallback для скан-PDF (tesseract)
+
+### Entity Resolver
+- **RESOLV-01**: Дедупликация кандидатов по email/телефону
+- **RESOLV-02**: Нечёткий матч ФИО — только с ручным подтверждением
+
+### Векторный слой
+- **QDRANT-01**: Коллекции skills, companies, experiences, resumes в Qdrant
+- **QDRANT-02**: BGE-M3 эмбеддинги локально на CPU
+
+### Eval
+- **EVAL-01**: 20 размеченных резюме, precision/recall по типам сущностей
 
 ## Вне скопа
 
-| Возможность | Причина |
-|-------------|---------|
-| Парсер PDF/DOCX | Фаза 1 — требует LLM-контрактов |
-| LLM-экстрактор | Фаза 1 — провайдер не выбран |
-| Entity Resolver | Фаза 2 |
-| Qdrant-коллекции и эмбеддинги | Фаза 2 |
-| Huntflow-коннектор | Фаза 2 |
-| KAG retrieval | Фаза 3 |
-| Фронтенд | Фаза 4 |
+| Feature | Причина |
+|---------|---------|
+| Полноценный R&D (30 резюме, 3 модели) | Smoke-test достаточно для старта |
+| Eval baseline в v1.1 | Пропускаем — метрики на потом |
+| DOCX, OCR в v1.1 | PDF достаточно; усложнение без нужды на старте |
+| Entity Resolver в v1.1 | Каждое резюме = новый кандидат; дубли осознанно |
+| KAG retrieval | v1.3 |
+| Huntflow-коннектор | v1.2 |
+| Фронтенд | v1.4 |
 | 152-ФЗ, RBAC, мультитенантность | За пределами MVP |
-| Интеграционные тесты с LLM | После выбора провайдера |
 
-## Трассируемость
+## Трассировка (v1.1)
 
-| Требование | Фаза | Название фазы | Статус |
-|------------|------|---------------|--------|
-| INFRA-01 | Фаза 1 | Инфраструктурный скелет | Ожидание |
-| INFRA-02 | Фаза 1 | Инфраструктурный скелет | Ожидание |
-| INFRA-03 | Фаза 1 | Инфраструктурный скелет | Ожидание |
-| INFRA-04 | Фаза 1 | Инфраструктурный скелет | Ожидание |
-| ONTO-03 | Фаза 1 | Инфраструктурный скелет | Ожидание |
-| ONTO-01 | Фаза 2 | Онтология графа | Выполнено |
-| ONTO-02 | Фаза 2 | Онтология графа | Выполнено |
-| SEED-01 | Фаза 3 | Тестовые данные и eval | Ожидание |
-| SEED-02 | Фаза 3 | Тестовые данные и eval | Ожидание |
-| TEST-01 | Фаза 3 | Тестовые данные и eval | Ожидание |
-| TEST-02 | Фаза 3 | Тестовые данные и eval | Ожидание |
+| Требование | Фаза | Статус |
+|------------|------|--------|
+| PARSE-01 | Фаза 4 | Done ✅ |
+| PARSE-02 | Фаза 4 | Done ✅ |
+| PARSE-03 | Фаза 4 | Done ✅ |
+| EXTR-01 | Фаза 5 | Done ✅ 2026-06-11 |
+| EXTR-02 | Фаза 5 | Done ✅ 2026-06-11 |
+| EXTR-03 | Фаза 5 | Complete ✅ 2026-06-11 |
+| WRITE-01 | Фаза 6 | Pending |
+| WRITE-02 | Фаза 6 | Pending |
+| WRITE-03 | Фаза 6 | Pending |
+| WRITE-04 | Фаза 6 | Pending |
+| API-01 | Фаза 7 | Pending |
+| API-02 | Фаза 7 | Pending |
+| PIPE-01 | Фаза 7 | Pending |
 
-**Покрытие:**
-- v1 требований: 11 всего
-- Распределено по фазам: 11
-- Не покрыто: 0 ✓
+**Coverage:**
+- v1.1 requirements: 13 total
+- Mapped to phases: 13
+- Unmapped: 0 ✓
 
 ---
-*Требования определены: 2026-05-03*
-*Последнее обновление: 2026-05-03 — roadmap создан, трассируемость обновлена*
+*Requirements defined: 2026-06-03*
+*Last updated: 2026-06-11 — EXTR-01/EXTR-02/EXTR-03 complete (Phase 5 verified, 9/9 must-haves)*

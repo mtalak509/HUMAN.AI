@@ -1,72 +1,59 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: unknown
-last_updated: "2026-05-07T10:57:33Z"
+milestone: v1.1
+milestone_name: Ingestion Pipeline
+status: in_progress
+last_updated: "2026-06-11T20:45:00Z"
 progress:
-  total_phases: 3
+  total_phases: 4
   completed_phases: 2
   total_plans: 9
-  completed_plans: 9
-  percent: 100
+  completed_plans: 4
+  percent: 44
 ---
 
 # Состояние проекта
 
 ## Ссылка на проект
 
-См.: .planning/PROJECT.md (обновлён 2026-05-03)
+См.: .planning/PROJECT.md (обновлён 2026-06-03)
 
-**Ключевая ценность:** Локальный стек поднимается одной командой, в Neo4j лежат тестовые кандидаты, базовые Cypher-запросы работают
-**Текущий фокус:** Фаза 3 — Тестовые данные и eval
+**Ключевая ценность:** Загрузил PDF-резюме → кандидат появился в графе с experience, education, skills — без ручного ввода
+**Текущий фокус:** Milestone v1.1 — Ingestion Pipeline
 
 ## Текущая позиция
 
-Фаза: 3 из 3 (Тестовые данные и eval)
-План: 3 из 3 в текущей фазе — ВСЕ ПЛАНЫ ВЫПОЛНЕНЫ
-Статус: Complete — все три фазы завершены
-Последняя активность: 2026-05-07 — Выполнен план 03-03: tests/conftest.py и tests/test_infra.py
+Фаза: 6 — Graph Writer (следующий)
+Статус: Фаза 5 полностью завершена (оба плана); следующий: Фаза 6 Graph Writer
+Последняя активность: 2026-06-11 — Выполнен план 05-02: Extractor class + 5/5 резюме без ValidationError
+Resume: .planning/phases/06-writer/06-01-PLAN.md (если создан)
 
-Прогресс: [██████████] 100%
-
-## Метрики выполнения
-
-**Скорость:**
-
-- Всего планов выполнено: 4
-- Среднее время: 10 мин
-- Суммарное время: 41 мин
-
-**По фазам:**
-
-| Фаза | Планов | Итого | Среднее/план |
-|------|--------|-------|--------------|
-| 2. Онтология графа | 2 | 38 мин | 19 мин |
-| 3. Тестовые данные и eval | 3 | 8 мин | 2.7 мин |
-
-**Динамика:**
-
-- Последние 5 планов: 02-01 (16 мин), 02-02 (~22 мин), 03-01 (2 мин), 03-02 (5 мин), 03-03 (~1 мин)
-- Тренд: стабильный
-
-*Обновляется после каждого завершённого плана*
+Прогресс: [████░░░░░░] 44%
 
 ## Накопленный контекст
 
 ### Решения
 
-Решения фиксируются в таблице «Ключевые решения» в PROJECT.md.
-Актуальные решения, влияющие на текущую работу:
-
-- Граф — источник правды, Qdrant — индекс (KAG-паттерн)
-- Факт как отдельный узел — провенанс из коробки
-- LLM-провайдер не выбирается в Фазе 0 — зависимость не закладывается
-- Никаких строк вместо узлов: `Skill: "Python"` — это узел
-- Seed-кандидат c-001 (Алексей Соколов) — единственный тестовый кандидат, все 12 типов узлов в одном графе
-- queries.py — чистая функциональная библиотека: AsyncDriver как аргумент, нет импорта GraphDB
-- neo4j_driver fixture yields raw AsyncDriver (not GraphDB wrapper) — conftest соответствует queries.py
-- Нет redis_client в conftest — Redis проверяется inline в test_infra.py через redis.asyncio
+- Граф — источник правды, Qdrant — индекс (KAG-паттерн) ✓
+- json_object + Pydantic + 1 retry — дефолт экстрактора (smoke-test: 0 ошибок) ✓
+- PDF only для парсера v1 (DOCX и OCR — вне скопа) ✓
+- Entity Resolver — не в v1.1, каждое резюме = новый кандидат ✓
+- Полноценный R&D пропускаем — smoke-test достаточен ✓
+- MERGE-ключи: Candidate.id, Skill.name, Company.name, Role.title (из migrations.py) ✓
+- PyPdfBackend: ("", "empty") когда все страницы пустые — маркеры не включаются ✓
+- storage_root: Path = Path("storage") в Settings, env STORAGE_ROOT ✓
+- ParseResult.file_uri / text_uri — относительные пути (не абсолютные) ✓
+- openrouter_api_key добавлен в Settings как str | None для совместимости с .env ✓
+- ExtractedCandidate: поля verbatim из rnd Resume (D-04); is_current = computed_field (D-05); провенанс document_id+model_version (D-02); без переименования под онтологию (D-06) ✓
+- extractor config knobs в Settings: extractor_model/openrouter_base_url/extractor_timeout/extractor_temperature с дефолтами smoke-test ✓
+- Extractor.extract: async, run_in_executor offload, json_object + Pydantic + 1 retry (EXTR-01/02) ✓
+- document_id + model_version штампуются в _validate() — авторитет вызова, не LLM (D-02/D-03) ✓
+- 5/5 резюме без ValidationError в live integration-тесте (критерий #4) ✓
+- failure-policy: 2-й retry-провал пробрасывает ValidationError (propagate, D-discretion) ✓
+- Document MERGE: SET (не ON CREATE SET) — повторный парсинг обновляет тот же узел, без дублей ✓
+- is_connected guard перед session() — graceful degradation при недоступном Neo4j ✓
+- corpus smoke-тест работает с db=None — независим от инфры ✓
+- datetime.UTC alias (Python 3.11+) вместо timezone.utc ✓
 
 ### Ожидающие задачи
 
@@ -80,10 +67,12 @@ progress:
 
 | Категория | Элемент | Статус | Отложен в |
 |-----------|---------|--------|-----------|
-| *(нет)* | | | |
+| Eval baseline | precision/recall на 20 резюме | v2 | v1.1 |
+| DOCX/OCR парсер | Поддержка не-PDF форматов | v2 | v1.1 |
+| Entity Resolver | Дедупликация кандидатов | v1.2 | v1.1 |
 
 ## Непрерывность сессий
 
-Последняя сессия: 2026-05-07
-Остановились на: Выполнен план 03-03 (eval harness) — все планы завершены
-Файл возобновления: Нет
+Последняя сессия: 2026-06-11
+Остановились на: Выполнен 05-02 — Extractor class + live integration 5/5; Фаза 5 полностью завершена
+Файл возобновления: .planning/phases/06-writer/ (следующая фаза)
