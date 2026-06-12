@@ -1,135 +1,52 @@
+<div align="center">
+
 # HUMAN.AI
 
-Talent Intelligence Platform backend.
+**Talent Intelligence Platform** — your company's AI memory of every candidate it has ever met.
 
-Сервис принимает резюме и заметки рекрутера, хранит факты и связи в Neo4j,
-использует Qdrant как векторный индекс и отдает ранжированные результаты через API.
+![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi&logoColor=white)
+![Neo4j](https://img.shields.io/badge/Neo4j-5.x-008CC1?logo=neo4j&logoColor=white)
+![Qdrant](https://img.shields.io/badge/Qdrant-vectors-DC244C)
+![Status](https://img.shields.io/badge/status-building%20MVP-orange)
 
-## Tech Stack
+</div>
 
-- Python 3.11+
-- FastAPI
-- Neo4j 5.x
-- Qdrant
-- Redis
-- Loguru
-- Docker Compose
+Recruiters re-source candidates they already know. HUMAN.AI ingests resumes and recruiter notes, turns them into a knowledge graph with full provenance, and answers natural-language queries with a ranked, **explainable** shortlist — every claim traceable to its source document.
 
-## Project Structure
-
-- `api/` - FastAPI приложение, lifespan, `/health`, DI-хелперы
-- `core/` - конфигурация, логирование и доменная логика:
-  - `config.py` / `logger.py` - настройки (pydantic-settings) и Loguru
-  - `database/` - `GraphDB` (async-обёртка Neo4j) + миграции схемы
-  - `schemas/` - Pydantic-онтология (12 типов узлов)
-  - `parser/` - PDF-парсер: текст → файлы → MERGE Document (Фаза 4)
-  - `extractor/` - LLM-экстрактор: текст → `ExtractedCandidate` (Фаза 5)
-- `scripts/` - CLI: `migrate.py`, `seed.py`, `queries.py`
-- `tests/` - unit + integration тесты (часть пропускается без инфры/ключа)
-- `rnd/` - R&D-код и артефакты smoke-теста экстрактора
-- `.planning/` - артефакты планирования и отчеты по фазам
-
-## Environment Configuration
-
-Пример конфигурации находится в `.env.example`.
-
-1. Скопируйте пример:
-
-```bash
-cp .env.example .env
+```
+resume / notes ──▶ parser ──▶ LLM extractor ──▶ knowledge graph (Neo4j ⇄ Qdrant)
+                                                        │
+recruiter's question ──▶ hybrid search ──▶ shortlist with cited evidence
 ```
 
-2. Обновите минимум:
+The core idea is **KAG (Knowledge-Augmented Generation)**: the graph is the source of truth, the vector index only finds — every answer is grounded in graph facts, not embeddings. No hallucinated candidates.
 
-- `NEO4J_PASSWORD` - пароль Neo4j
+## Stack
 
-Для LLM-экстрактора (Фаза 5) задайте `OPENROUTER_API_KEY` — без него
-экстрактор не работает, а его live-тест пропускается.
+Python 3.11 · FastAPI · Pydantic v2 · Neo4j 5 · Qdrant · Celery + Redis · BGE-M3 (local embeddings) · LLM via OpenRouter · Docker Compose
 
-Остальные значения по умолчанию:
-
-- `NEO4J_URI=bolt://localhost:7687`
-- `QDRANT_URL=http://localhost:6333`
-- `REDIS_URL=redis://localhost:6379`
-- `LOG_LEVEL=INFO`
-- `LOG_JSON=false`
-- `STORAGE_ROOT=storage` - корень хранилища документов
-- `EXTRACTOR_MODEL=qwen/qwen3.6-plus` - модель OpenRouter для экстрактора
-- `OPENROUTER_BASE_URL=https://openrouter.ai/api/v1`
-- `EXTRACTOR_TIMEOUT=60.0` / `EXTRACTOR_TEMPERATURE=0.0`
-
-Секреты (`NEO4J_PASSWORD`, `OPENROUTER_API_KEY`) читаются только из `.env`
-или окружения через `Settings`, в логи не попадают.
-
-## Run Locally (without Docker app container)
-
-1. Установите зависимости:
+## Quickstart
 
 ```bash
-pip install -e ".[dev]"
+cp .env.example .env          # set NEO4J_PASSWORD (and OPENROUTER_API_KEY for the extractor)
+docker compose up -d          # Neo4j + Qdrant + Redis + API
+curl localhost:8000/health    # {"status":"ok"}
 ```
 
-2. Поднимите инфраструктуру:
+Local dev: `pip install -e ".[dev]"` → `uvicorn api.main:app --reload` → `pytest` (infra-dependent tests skip automatically).
 
-```bash
-docker compose up -d neo4j qdrant redis
-```
+## Roadmap
 
-3. Запустите API:
+| Milestone | Scope | Status |
+|---|---|---|
+| v1.0 | Infrastructure, graph ontology, migrations | ✅ done |
+| v1.1 | Ingestion pipeline: PDF → parse → extract → graph | 🔨 in progress |
+| v1.2 | Entity resolution, ATS connector, vector layer | planned |
+| v1.3 | KAG retrieval: natural-language search with citations | planned |
 
-```bash
-uvicorn api.main:app --reload
-```
+---
 
-4. Проверьте health endpoint:
-
-```bash
-curl http://localhost:8000/health
-```
-
-Ожидаемый ответ:
-
-- `{"status":"ok"}` - Neo4j доступен
-- `{"status":"degraded","neo4j":"unavailable"}` - API работает, но Neo4j недоступен
-
-## Run Full Stack with Docker Compose
-
-```bash
-docker compose up -d --build
-```
-
-Это поднимет:
-
-- `neo4j` (7474/7687)
-- `qdrant` (6333)
-- `redis` (6379)
-- `fastapi` (8000)
-
-Проверка:
-
-```bash
-docker compose ps
-curl http://localhost:8000/health
-```
-
-## Logging
-
-- Конфигурируется в `core/logger.py` через `setup_logging(level, json_mode)`
-- Обычный режим: цветной формат в stderr
-- JSON-режим: включается через `LOG_JSON=true`
-
-## Tests
-
-```bash
-pytest                              # все тесты
-pytest tests/test_health.py        # unit, без инфры
-pytest tests/test_parser_unit.py   # парсер, без инфры
-```
-
-Тесты, требующие инфраструктуры (Neo4j) или `OPENROUTER_API_KEY`,
-пропускаются автоматически при их отсутствии.
-
-## Notes
-
-- `.env` игнорируется git и не должен коммититься.
-- `.env.example` хранится в репозитории как шаблон.
+<div align="center">
+<sub>A <b>HUMAN.AI</b> startup project · pre-MVP · built in the open</sub>
+</div>

@@ -70,6 +70,7 @@ dump.rdb
 # Project docs (local only)
 CLAUDE.md
 core_architecture.md
+project_status.md
 
 # .claude
 .claude/
