@@ -67,8 +67,12 @@ Plans:
 **Plans:** 2 плана
 
 Plans:
-- [ ] 06-01: `core/writer/cypher.py` — Cypher MERGE транзакции для всех 12 типов узлов
-- [ ] 06-02: `core/writer/graph_writer.py` — GraphWriter класс, Fact-провенанс, идемпотентность
+
+**Wave 1**
+- [ ] 06-01-PLAN.md — `core/writer/cypher.py` — параметризованная Cypher-библиотека: MERGE 8 типов узлов + денорм-рёбра + Fact-триплет (HAS_FACT/EXTRACTED_FROM/SUPPORTS) + новое ребро USED_SKILL (D-06) — WRITE-01/02/03
+
+**Wave 2** *(blocked on 06-01)*
+- [ ] 06-02-PLAN.md — `core/writer/graph_writer.py` — GraphWriter класс: детерминированные ID (D-01), skill union (D-04/05), Fact-провенанс (D-02/03/07), одна транзакция, graceful degradation + unit/integration тесты с идемпотентностью WRITE-04
 
 ### Phase 7: Ingestion API
 **Goal:** Полный ingestion-пайплайн доступен через HTTP API — `POST /documents` запускает Celery-задачу, `GET /documents/{id}` отдаёт статус; сквозной тест: PDF через API → кандидат в графе
@@ -98,5 +102,5 @@ Plans:
 |------|-----------------|--------|-----------|
 | 4. PDF-парсер | 2/2 | Complete | 2026-06-11 |
 | 5. LLM-экстрактор | 2/2 | Complete | 2026-06-11 |
-| 6. Graph Writer | 0/2 | Pending | — |
+| 6. Graph Writer | 0/2 | Planned | — |
 | 7. Ingestion API | 0/3 | Pending | — |
