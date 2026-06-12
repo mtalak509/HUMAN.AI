@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
-status: in_progress
-last_updated: "2026-06-12T17:59:41.840Z"
+status: Executing Phase 6
+last_updated: "2026-06-12T18:29:19Z"
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
-  percent: 100
+  total_plans: 6
+  completed_plans: 5
+  percent: 83
 ---
 
 # Состояние проекта
@@ -23,12 +23,12 @@ progress:
 
 ## Текущая позиция
 
-Фаза: 6 — Graph Writer (планирование)
-Статус: Фаза 6 — контекст собран (06-CONTEXT.md, решения D-01…D-08); следующий шаг: /gsd-plan-phase 6
-Последняя активность: 2026-06-12 — discuss-phase 6: закрыто открытое решение ExtractedCandidate→Fact + Fact.confidence=null
-Resume: .planning/phases/06-graph-writer/06-CONTEXT.md
+Фаза: 6 — Graph Writer (план 01 завершён)
+Статус: 06-01 выполнен — core/writer/cypher.py (19 Cypher-констант) + core/writer/__init__.py; следующий шаг: план 06-02 (GraphWriter service)
+Последняя активность: 2026-06-12 — 06-01: Cypher statement library завершена (WRITE-01/02/03)
+Resume: .planning/phases/06-graph-writer/06-01-SUMMARY.md
 
-Прогресс: [████░░░░░░] 44%
+Прогресс: [████████░░] 83%
 
 ## Накопленный контекст
 
@@ -54,6 +54,9 @@ Resume: .planning/phases/06-graph-writer/06-CONTEXT.md
 - is_connected guard перед session() — graceful degradation при недоступном Neo4j ✓
 - corpus smoke-тест работает с db=None — независим от инфры ✓
 - datetime.UTC alias (Python 3.11+) вместо timezone.utc ✓
+- cypher.py — единственная Cypher-библиотека GraphWriter: все запросы параметризованы ($param), plain SET (не ON CREATE SET), Document всегда MATCH (не MERGE) ✓
+- USED_SKILL (D-06) — новый тип ребра Experience->Skill без constraint (рёбра не имеют uniqueness-ключей) ✓
+- LINK_SUPPORTS_SKILL / LINK_SUPPORTS_EXPERIENCE — разные константы (D-03: has_skill→Skill, worked_at→Experience) ✓
 
 ### Ожидающие задачи
 
@@ -74,5 +77,5 @@ Resume: .planning/phases/06-graph-writer/06-CONTEXT.md
 ## Непрерывность сессий
 
 Последняя сессия: 2026-06-12
-Остановились на: discuss-phase 6 завершён — 06-CONTEXT.md (D-01…D-08); готово к /gsd-plan-phase 6
-Файл возобновления: .planning/phases/06-graph-writer/06-CONTEXT.md
+Остановились на: 06-01 выполнен — Cypher statement library (core/writer/cypher.py + __init__.py)
+Файл возобновления: .planning/phases/06-graph-writer/06-01-SUMMARY.md

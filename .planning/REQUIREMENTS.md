@@ -87,9 +87,9 @@
 | EXTR-01 | Фаза 5 | Done ✅ 2026-06-11 |
 | EXTR-02 | Фаза 5 | Done ✅ 2026-06-11 |
 | EXTR-03 | Фаза 5 | Complete ✅ 2026-06-11 |
-| WRITE-01 | Фаза 6 | Pending |
-| WRITE-02 | Фаза 6 | Pending |
-| WRITE-03 | Фаза 6 | Pending |
+| WRITE-01 | Фаза 6 | In Progress (06-01: Cypher library done; 06-02: GraphWriter class pending) |
+| WRITE-02 | Фаза 6 | In Progress (06-01: Cypher library done; 06-02: GraphWriter class pending) |
+| WRITE-03 | Фаза 6 | In Progress (06-01: Cypher library done; 06-02: GraphWriter class pending) |
 | WRITE-04 | Фаза 6 | Pending |
 | API-01 | Фаза 7 | Pending |
 | API-02 | Фаза 7 | Pending |

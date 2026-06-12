@@ -69,7 +69,7 @@ Plans:
 Plans:
 
 **Wave 1**
-- [ ] 06-01-PLAN.md — `core/writer/cypher.py` — параметризованная Cypher-библиотека: MERGE 8 типов узлов + денорм-рёбра + Fact-триплет (HAS_FACT/EXTRACTED_FROM/SUPPORTS) + новое ребро USED_SKILL (D-06) — WRITE-01/02/03
+- [x] 06-01-PLAN.md — `core/writer/cypher.py` — параметризованная Cypher-библиотека: MERGE 8 типов узлов + денорм-рёбра + Fact-триплет (HAS_FACT/EXTRACTED_FROM/SUPPORTS) + новое ребро USED_SKILL (D-06) — WRITE-01/02/03 ✅ 2026-06-12
 
 **Wave 2** *(blocked on 06-01)*
 - [ ] 06-02-PLAN.md — `core/writer/graph_writer.py` — GraphWriter класс: детерминированные ID (D-01), skill union (D-04/05), Fact-провенанс (D-02/03/07), одна транзакция, graceful degradation + unit/integration тесты с идемпотентностью WRITE-04
@@ -102,5 +102,5 @@ Plans:
 |------|-----------------|--------|-----------|
 | 4. PDF-парсер | 2/2 | Complete | 2026-06-11 |
 | 5. LLM-экстрактор | 2/2 | Complete | 2026-06-11 |
-| 6. Graph Writer | 0/2 | Planned | — |
+| 6. Graph Writer | 1/2 | In Progress | — |
 | 7. Ingestion API | 0/3 | Pending | — |
