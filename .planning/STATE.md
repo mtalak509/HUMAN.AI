@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.1
-milestone_name: Ingestion Pipeline
+milestone_name: milestone
 status: in_progress
-last_updated: "2026-06-11T20:45:00Z"
+last_updated: "2026-06-12T17:59:41.840Z"
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 9
+  total_plans: 4
   completed_plans: 4
-  percent: 44
+  percent: 100
 ---
 
 # Состояние проекта
@@ -23,10 +23,10 @@ progress:
 
 ## Текущая позиция
 
-Фаза: 6 — Graph Writer (следующий)
-Статус: Фаза 5 полностью завершена (оба плана); следующий: Фаза 6 Graph Writer
-Последняя активность: 2026-06-11 — Выполнен план 05-02: Extractor class + 5/5 резюме без ValidationError
-Resume: .planning/phases/06-writer/06-01-PLAN.md (если создан)
+Фаза: 6 — Graph Writer (планирование)
+Статус: Фаза 6 — контекст собран (06-CONTEXT.md, решения D-01…D-08); следующий шаг: /gsd-plan-phase 6
+Последняя активность: 2026-06-12 — discuss-phase 6: закрыто открытое решение ExtractedCandidate→Fact + Fact.confidence=null
+Resume: .planning/phases/06-graph-writer/06-CONTEXT.md
 
 Прогресс: [████░░░░░░] 44%
 
@@ -73,6 +73,6 @@ Resume: .planning/phases/06-writer/06-01-PLAN.md (если создан)
 
 ## Непрерывность сессий
 
-Последняя сессия: 2026-06-11
-Остановились на: Выполнен 05-02 — Extractor class + live integration 5/5; Фаза 5 полностью завершена
-Файл возобновления: .planning/phases/06-writer/ (следующая фаза)
+Последняя сессия: 2026-06-12
+Остановились на: discuss-phase 6 завершён — 06-CONTEXT.md (D-01…D-08); готово к /gsd-plan-phase 6
+Файл возобновления: .planning/phases/06-graph-writer/06-CONTEXT.md
