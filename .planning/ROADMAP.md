@@ -80,21 +80,23 @@ Plans:
 **Requirements:** API-01, API-02, PIPE-01
 **Success Criteria:**
   1. `POST /documents` (multipart/form-data, поле `file`) возвращает `{"document_id": "...", "task_id": "..."}` за < 200ms
-  2. `GET /documents/{document_id}` возвращает корректный статус на каждом этапе (queued → parsing → extracting → writing → written)
+  2. `GET /documents/{document_id}` возвращает корректный статус. ⚠️ **D-02: набор статусов сознательно МИНИМАЛЬНЫЙ** — `queued → processing → written` + `failed` (БЕЗ пер-этапных parsing/extracting/writing); диагностика «где упало» — в поле `failed_stage` (D-06). Проверка фазы тестирует этот набор, НЕ исходный пер-этапный критерий.
   3. Celery worker обрабатывает PDF: parse → extract → write — без блокировки HTTP-сервера
   4. Сквозной тест: POST реального PDF → polling GET до `written` → запрос `find_candidates_by_skill()` находит кандидата
-  5. При ошибке на любом шаге — статус `failed` с описанием ошибки, повторный POST не создаёт дублей
+  5. При ошибке на любом шаге — статус `failed` с `error` + `failed_stage` (D-06); повторный POST умный по статусу (D-05: written→reuse, failed→re-run, in-flight→no-dup)
 
 **Plans:** 3 плана
 
 Plans:
 
-**Wave 1** *(независимые)*
-- [ ] 07-01: Celery task `process_document` — оркестрирует parse→extract→write, обновляет статус в Neo4j
-- [ ] 07-02: API эндпоинты — `POST /documents`, `GET /documents/{id}` в `api/routers/documents.py`
+**Wave 1**
+- [ ] 07-01-PLAN.md — `core/pipeline/` — Celery app + status-хелперы (D-03/D-04) + task `process_document` (parse→extract→write, fail-fast D-06/D-07) + поля Document.processing_status/error/failed_stage + индекс (PIPE-01)
 
-**Wave 2** *(blocked on Wave 1)*
-- [ ] 07-03: Сквозной интеграционный тест — PDF → API → Neo4j, smoke-тест пайплайна
+**Wave 2** *(blocked on 07-01)*
+- [ ] 07-02-PLAN.md — `api/routers/documents.py` — `POST /documents` (MERGE queued до enqueue D-04, upload-cap+валидация) + `GET /documents/{id}` (D-06) + умный дедуп (D-05) + регистрация роутера (API-01/API-02)
+
+**Wave 3** *(blocked on 07-01, 07-02)*
+- [ ] 07-03-PLAN.md — `tests/test_ingestion_e2e.py` — сквозной smoke: PDF → API → Celery (eager) → Neo4j → `find_candidates_by_skill` (criterion #4); failure-path (failed/failed_stage D-06) + дедуп (D-05); чистый skip без инфры
 
 ## Прогресс
 
