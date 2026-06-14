@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
-status: Phase 7 executing — plan 07-02 complete, 07-03 next
-last_updated: "2026-06-14T18:44:41Z"
+status: Phase 7 COMPLETE — all 3 plans done (07-01 ✅, 07-02 ✅, 07-03 ✅); milestone v1.1 complete
+last_updated: "2026-06-14T19:05:17.744Z"
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 9
-  completed_plans: 8
-  percent: 89
+  completed_plans: 9
+  percent: 100
 ---
 
 # Состояние проекта
@@ -23,12 +23,12 @@ progress:
 
 ## Текущая позиция
 
-Фаза: 7 — Ingestion API (исполнение: 07-01 ✅, 07-02 ✅ завершены)
-Статус: 07-02 DONE (POST /documents + GET /documents/{id} + D-04/D-05/D-06 + 14 unit tests); следующий план: 07-03 (e2e тест)
-Последняя активность: 2026-06-14 — 07-02 выполнен: api/routers/documents.py, api/dependencies.py, router registered, 14 unit tests green
-Resume: .planning/phases/07-ingestion-api/07-03-PLAN.md
+Фаза: 7 — Ingestion API ЗАВЕРШЕНА (07-01 ✅, 07-02 ✅, 07-03 ✅)
+Статус: MILESTONE v1.1 COMPLETE — PDF-резюме через POST /documents → Neo4j граф → find_candidates_by_skill подтверждён end-to-end
+Последняя активность: 2026-06-14 — 07-03 выполнен: tests/test_ingestion_e2e.py (2 e2e теста, все зелёные)
+Resume: N/A (фаза завершена)
 
-Прогресс: [█████████░] 89%
+Прогресс: [██████████] 100%
 
 ## Накопленный контекст
 
@@ -72,6 +72,9 @@ Resume: .planning/phases/07-ingestion-api/07-03-PLAN.md
 - D-04 ordering: merge_document_queued вызывается ВНУТРИ async-with-session, process_document.delay — ПОСЛЕ закрытия сессии ✓
 - D-05 dedup: _read_status одним Cypher-запросом до любой записи; written→200/null, queued|processing→202/null, failed→reset+202/task_id ✓
 - 413 int literal (не HTTP_413_REQUEST_ENTITY_TOO_LARGE — deprecated в FastAPI) ✓
+- httpx.AsyncClient + ASGITransport вместо TestClient для e2e тестов с session-scoped async Neo4j fixtures (избегает "Future attached to different loop" на Windows ProactorEventLoop) ✓
+- await _run(document_id) напрямую вместо Celery eager mode в async тестах (asyncio.run() не может быть вызван из running event loop) ✓
+- _FakeExtractor plain class вместо AsyncMock — AsyncMock создаёт futures, привязанные к loop создания (cross-loop safe) ✓
 
 ### Ожидающие задачи
 
@@ -92,5 +95,5 @@ Resume: .planning/phases/07-ingestion-api/07-03-PLAN.md
 ## Непрерывность сессий
 
 Последняя сессия: 2026-06-14
-Остановились на: 07-02 — POST /documents + GET /documents/{id} выполнены, 2 коммита, 14 unit-тестов green
-Файл возобновления: .planning/phases/07-ingestion-api/07-03-PLAN.md
+Остановились на: 07-03 DONE — e2e тест выполнен, 2 теста зелёные, milestone v1.1 complete
+Файл возобновления: N/A (фаза завершена)

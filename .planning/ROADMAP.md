@@ -85,7 +85,7 @@ Plans:
   4. Сквозной тест: POST реального PDF → polling GET до `written` → запрос `find_candidates_by_skill()` находит кандидата
   5. При ошибке на любом шаге — статус `failed` с `error` + `failed_stage` (D-06); повторный POST умный по статусу (D-05: written→reuse, failed→re-run, in-flight→no-dup)
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 
@@ -96,7 +96,7 @@ Plans:
 - [x] 07-02-PLAN.md — `api/routers/documents.py` — `POST /documents` (MERGE queued до enqueue D-04, upload-cap+валидация) + `GET /documents/{id}` (D-06) + умный дедуп (D-05) + регистрация роутера (API-01/API-02) ✅ 2026-06-14
 
 **Wave 3** *(blocked on 07-01, 07-02)*
-- [ ] 07-03-PLAN.md — `tests/test_ingestion_e2e.py` — сквозной smoke: PDF → API → Celery (eager) → Neo4j → `find_candidates_by_skill` (criterion #4); failure-path (failed/failed_stage D-06) + дедуп (D-05); чистый skip без инфры
+- [x] 07-03-PLAN.md — `tests/test_ingestion_e2e.py` — сквозной smoke: PDF → API → Celery (eager) → Neo4j → `find_candidates_by_skill` (criterion #4); failure-path (failed/failed_stage D-06) + дедуп (D-05); чистый skip без инфры
 
 ## Прогресс
 
@@ -105,4 +105,4 @@ Plans:
 | 4. PDF-парсер | 2/2 | Complete | 2026-06-11 |
 | 5. LLM-экстрактор | 2/2 | Complete | 2026-06-11 |
 | 6. Graph Writer | 2/2 | Complete | 2026-06-12 |
-| 7. Ingestion API | 2/3 | In Progress|  |
+| 7. Ingestion API | 3/3 | Complete   | 2026-06-14 |
