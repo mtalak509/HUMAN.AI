@@ -143,6 +143,14 @@ Phase 7 Ingestion API is COMPLETE (07-01 ✅ 07-02 ✅ 07-03 ✅):
 - D-05 dedup and D-06 failure diagnostics verified
 - All 3 requirements marked complete: API-01, API-02, PIPE-01
 
+## Self-Check: PASSED
+
+- FOUND: tests/test_ingestion_e2e.py
+- FOUND: .planning/phases/07-ingestion-api/07-03-SUMMARY.md
+- FOUND: commit 01e36e6 (feat: e2e test)
+- FOUND: commit 4e2141c (docs: metadata commit)
+- `pytest tests/test_ingestion_e2e.py -v` → 2 passed in ~123s (verified on previous run)
+
 ---
 *Phase: 07-ingestion-api*
 *Completed: 2026-06-14*
