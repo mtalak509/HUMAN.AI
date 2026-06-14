@@ -11,10 +11,9 @@ Scenarios tested:
 All tests use function-scoped asyncio loop (pytest.mark.asyncio default).
 """
 
-import asyncio
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -290,6 +289,77 @@ async def test_process_document_extract_failure(fake_db, tmp_path, monkeypatch):
 
     # writer should NOT have been called
     mock_writer_cls.return_value.write.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Test: CR-01 — mid-pipeline Neo4j drop must not mask the original exception
+# ---------------------------------------------------------------------------
+
+
+class _DropAfterNSessionsDB(FakeGraphDB):
+    """FakeGraphDB that simulates Neo4j dropping mid-pipeline.
+
+    The first `ok_sessions` session() entries succeed; subsequent ones raise —
+    modelling a connection lost during a stage (e.g. a long LLM call).
+    """
+
+    def __init__(self, ok_sessions: int):
+        super().__init__(connected=True)
+        self._ok_sessions = ok_sessions
+        self._opened = 0
+
+    @asynccontextmanager
+    async def session(self):  # type: ignore[override]
+        self._opened += 1
+        if self._opened > self._ok_sessions:
+            raise RuntimeError("Neo4j connection lost mid-pipeline")
+        yield self.session_obj
+
+
+@pytest.mark.asyncio
+async def test_cr01_failure_recording_does_not_mask_original_exception(
+    tmp_path, monkeypatch
+):
+    """CR-01: if Neo4j drops mid-stage, the ORIGINAL stage error propagates.
+
+    set_status(processing) consumes the 1st session; the extract-failure
+    recording tries to open a 2nd session which now raises. _record_failure
+    must swallow that and let the original extract error surface — NOT leave
+    the doc wedged behind a masked session error.
+    """
+    from core.pipeline import tasks as tasks_mod
+
+    doc_dir = tmp_path / "documents" / DOCUMENT_ID
+    doc_dir.mkdir(parents=True)
+    (doc_dir / "resume.pdf").write_bytes(b"%PDF fake")
+
+    # 1 ok session (the processing-status write), then drop.
+    dropping_db = _DropAfterNSessionsDB(ok_sessions=1)
+    monkeypatch.setattr(tasks_mod, "GraphDB", lambda **kwargs: dropping_db)
+
+    parse_result = _make_fake_parse_result(DOCUMENT_ID)
+    mock_parser_cls = MagicMock()
+    mock_parser_cls.return_value.parse = AsyncMock(return_value=parse_result)
+    monkeypatch.setattr(tasks_mod, "PdfParser", mock_parser_cls)
+
+    extract_error = RuntimeError("LLM extraction failed")
+    mock_extractor_cls = MagicMock()
+    mock_extractor_cls.return_value.extract = AsyncMock(side_effect=extract_error)
+    monkeypatch.setattr(tasks_mod, "Extractor", mock_extractor_cls)
+
+    monkeypatch.setattr(tasks_mod, "GraphWriter", MagicMock())
+
+    from core.config import Settings
+    fake_settings = MagicMock(spec=Settings)
+    fake_settings.neo4j_uri = "bolt://localhost:7687"
+    fake_settings.neo4j_user = "neo4j"
+    fake_settings.neo4j_password = "test"
+    fake_settings.storage_root = tmp_path
+    monkeypatch.setattr(tasks_mod, "get_settings", lambda: fake_settings)
+
+    # The ORIGINAL extract error must surface, not "Neo4j connection lost".
+    with pytest.raises(RuntimeError, match="LLM extraction failed"):
+        await tasks_mod._run(DOCUMENT_ID)
 
 
 # ---------------------------------------------------------------------------

@@ -40,6 +40,31 @@ from core.writer.graph_writer import GraphWriter
 _MAX_ERROR_LEN = 2000
 
 
+async def _record_failure(
+    db: GraphDB, document_id: str, exc: Exception, stage: str
+) -> None:
+    """Best-effort failure recording (CR-01).
+
+    Opens a fresh session to mark the document failed. If Neo4j dropped
+    *during* a stage (e.g. mid LLM call), opening that session can itself raise.
+    This helper catches its own errors and NEVER raises, so the caller can always
+    re-raise the ORIGINAL stage exception. Without this, a recording-time error
+    would mask the real cause and leave the document wedged at 'processing'
+    forever (D-05 dedup then treats it as in-flight and refuses re-enqueue).
+    """
+    try:
+        async with db.session() as s:
+            await set_failed(s, document_id, str(exc)[:_MAX_ERROR_LEN], stage)
+    except Exception as rec_exc:
+        # Never let a recording failure escape — the original exc must surface.
+        logger.error(
+            "pipeline: could not record {} failure doc_id={} (Neo4j down?): {}",
+            stage,
+            document_id,
+            rec_exc,
+        )
+
+
 async def _run(document_id: str) -> None:
     """Async orchestrator: parse -> extract -> write with per-stage error tracking.
 
@@ -95,9 +120,8 @@ async def _run(document_id: str) -> None:
                 len(result.extracted_text),
             )
         except Exception as exc:
-            async with db.session() as s:
-                await set_failed(s, document_id, str(exc)[:_MAX_ERROR_LEN], "parse")
             logger.error("pipeline: parse FAILED doc_id={} error={}", document_id, exc)
+            await _record_failure(db, document_id, exc, "parse")
             raise
 
         # Step 4: Extract
@@ -106,9 +130,8 @@ async def _run(document_id: str) -> None:
             candidate = await extractor.extract(result.extracted_text, document_id)
             logger.info("pipeline: extract OK doc_id={}", document_id)
         except Exception as exc:
-            async with db.session() as s:
-                await set_failed(s, document_id, str(exc)[:_MAX_ERROR_LEN], "extract")
             logger.error("pipeline: extract FAILED doc_id={} error={}", document_id, exc)
+            await _record_failure(db, document_id, exc, "extract")
             raise
 
         # Step 5: Write to graph
@@ -120,9 +143,8 @@ async def _run(document_id: str) -> None:
             await writer.write(candidate, document_id)
             logger.info("pipeline: write OK doc_id={}", document_id)
         except Exception as exc:
-            async with db.session() as s:
-                await set_failed(s, document_id, str(exc)[:_MAX_ERROR_LEN], "write")
             logger.error("pipeline: write FAILED doc_id={} error={}", document_id, exc)
+            await _record_failure(db, document_id, exc, "write")
             raise
 
         # Step 6: Mark written
