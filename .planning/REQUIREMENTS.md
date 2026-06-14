@@ -43,8 +43,8 @@
 
 ### API и Pipeline
 
-- [ ] **API-01**: POST /documents принимает PDF, возвращает document_id и task_id
-- [ ] **API-02**: GET /documents/{id} возвращает статус (queued/parsing/extracting/writing/written/failed)
+- [x] **API-01**: POST /documents принимает PDF, возвращает document_id и task_id
+- [x] **API-02**: GET /documents/{id} возвращает статус (queued/parsing/extracting/writing/written/failed)
 - [x] **PIPE-01**: Полный цикл parse→extract→write выполняется асинхронно через Celery
 
 ## v2 Requirements (отложено)
@@ -91,8 +91,8 @@
 | WRITE-02 | Фаза 6 | In Progress (06-01: Cypher library done; 06-02: GraphWriter class pending) |
 | WRITE-03 | Фаза 6 | In Progress (06-01: Cypher library done; 06-02: GraphWriter class pending) |
 | WRITE-04 | Фаза 6 | Pending |
-| API-01 | Фаза 7 | Pending |
-| API-02 | Фаза 7 | Pending |
+| API-01 | Фаза 7 | Complete |
+| API-02 | Фаза 7 | Complete |
 | PIPE-01 | Фаза 7 | Complete |
 
 **Coverage:**

@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
-status: Phase 7 executing — plan 07-01 complete, 07-02 next
-last_updated: "2026-06-14T18:40:00Z"
+status: Phase 7 executing — plan 07-02 complete, 07-03 next
+last_updated: "2026-06-14T18:44:41Z"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 9
-  completed_plans: 7
-  percent: 78
+  completed_plans: 8
+  percent: 89
 ---
 
 # Состояние проекта
@@ -23,12 +23,12 @@ progress:
 
 ## Текущая позиция
 
-Фаза: 7 — Ingestion API (исполнение: 07-01 ✅ завершён)
-Статус: 07-01 DONE (Celery task + status helpers + Document model extension); следующий план: 07-02 (API эндпоинты)
-Последняя активность: 2026-06-14 — 07-01 выполнен: process_document task, status.py, celery_app.py, 17 unit tests
-Resume: .planning/phases/07-ingestion-api/07-02-PLAN.md
+Фаза: 7 — Ingestion API (исполнение: 07-01 ✅, 07-02 ✅ завершены)
+Статус: 07-02 DONE (POST /documents + GET /documents/{id} + D-04/D-05/D-06 + 14 unit tests); следующий план: 07-03 (e2e тест)
+Последняя активность: 2026-06-14 — 07-02 выполнен: api/routers/documents.py, api/dependencies.py, router registered, 14 unit tests green
+Resume: .planning/phases/07-ingestion-api/07-03-PLAN.md
 
-Прогресс: [█████████░] 86%
+Прогресс: [█████████░] 89%
 
 ## Накопленный контекст
 
@@ -68,6 +68,10 @@ Resume: .planning/phases/07-ingestion-api/07-02-PLAN.md
 - T-07-03: is_connected=False → RuntimeError до старта pipeline (никогда silent success) ✓
 - merge_document_queued: ON CREATE SET — re-POST in-flight doc не затирает статус (D-05) ✓
 - reset_for_requeue: обнуляет error/failed_stage=null для свежести при повторной постановке (D-05/D-06) ✓
+- api/dependencies.py: get_db/get_settings DI хелперы вынесены в отдельный модуль (circular import api/main ↔ api/routers) ✓
+- D-04 ordering: merge_document_queued вызывается ВНУТРИ async-with-session, process_document.delay — ПОСЛЕ закрытия сессии ✓
+- D-05 dedup: _read_status одним Cypher-запросом до любой записи; written→200/null, queued|processing→202/null, failed→reset+202/task_id ✓
+- 413 int literal (не HTTP_413_REQUEST_ENTITY_TOO_LARGE — deprecated в FastAPI) ✓
 
 ### Ожидающие задачи
 
@@ -88,5 +92,5 @@ Resume: .planning/phases/07-ingestion-api/07-02-PLAN.md
 ## Непрерывность сессий
 
 Последняя сессия: 2026-06-14
-Остановились на: 07-01 — Celery task + status helpers выполнены, 3 коммита, 17 unit-тестов green
-Файл возобновления: .planning/phases/07-ingestion-api/07-02-PLAN.md
+Остановились на: 07-02 — POST /documents + GET /documents/{id} выполнены, 2 коммита, 14 unit-тестов green
+Файл возобновления: .planning/phases/07-ingestion-api/07-03-PLAN.md
