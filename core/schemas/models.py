@@ -89,6 +89,10 @@ class Document(BaseModel):
     text_uri: str | None = None            # path to extracted .md text file
     parser_version: str | None = None      # e.g. "pypdf-v1"
     extraction_status: str | None = None   # "ok" | "empty"
+    # --- added in Phase 7 (ingestion API) ---
+    processing_status: str | None = None  # D-01: queued | processing | written | failed
+    error: str | None = None              # D-06: exception text, set only on failure
+    failed_stage: str | None = None       # D-06: parse | extract | write, set only on failure
 
 
 class Fact(BaseModel):

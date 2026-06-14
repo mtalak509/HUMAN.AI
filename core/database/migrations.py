@@ -95,6 +95,11 @@ INDEXES: list[tuple[str, str]] = [
         "CREATE INDEX fact_predicate_idx IF NOT EXISTS "
         "FOR (n:Fact) ON (n.predicate)",
     ),
+    (
+        "document_processing_status_idx",
+        "CREATE INDEX document_processing_status_idx IF NOT EXISTS "
+        "FOR (n:Document) ON (n.processing_status)",
+    ),
 ]
 
 
