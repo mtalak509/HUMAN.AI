@@ -15,7 +15,7 @@ Milestone v1.1 — первый полный ingestion-пайплайн: PDF →
 - [x] **Фаза 4: PDF-парсер** — `core/parser/` с pypdf-извлечением (каскад на pdfplumber отложен — D-01), object storage, Document-узел в графе ✅ 2026-06-11
 - [x] **Фаза 5: LLM-экстрактор** — `core/extractor/` на базе `rnd/src/`, адаптированный под полную онтологию ✅ 2026-06-11
 - [x] **Фаза 6: Graph Writer** — `core/writer/` — ExtractedFact[] → Cypher MERGE → Neo4j с Fact-провенансом ✅ 2026-06-12
-- [ ] **Фаза 7: Ingestion API** — `POST /documents`, `GET /documents/{id}`, Celery-task, сквозная интеграция
+- [x] **Фаза 7: Ingestion API** — `POST /documents`, `GET /documents/{id}`, Celery-task, сквозная интеграция ✅ 2026-06-14
 
 ## Детали фаз
 

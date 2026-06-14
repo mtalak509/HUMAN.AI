@@ -42,9 +42,9 @@ Backend-ядро Talent Intelligence Platform: пайплайн, который 
 - [ ] WRITE-02: Graph Writer создаёт Fact-узлы с провенансом (ссылка на Document)
 - [ ] WRITE-03: Graph Writer денормализует прямые связи Candidate→Skill для скорости поиска
 - [ ] WRITE-04: Запись в граф идемпотентна (повторный запуск не создаёт дублей)
-- [ ] API-01: POST /documents принимает PDF-файл, возвращает document_id и task_id
-- [ ] API-02: GET /documents/{id} возвращает статус обработки (queued/parsing/extracting/writing/written/failed)
-- [ ] PIPE-01: Обработка документа выполняется асинхронно через Celery worker
+- [x] API-01: POST /documents принимает PDF-файл, возвращает document_id и task_id ✅ Фаза 7
+- [x] API-02: GET /documents/{id} возвращает статус обработки — МИНИМАЛЬНЫЙ набор D-02: queued/processing/written/failed (диагностика «где упало» — в failed_stage, D-06), НЕ пер-этапный ✅ Фаза 7
+- [x] PIPE-01: Обработка документа выполняется асинхронно через Celery worker ✅ Фаза 7
 
 ### Вне скопа
 
@@ -101,4 +101,4 @@ LLM-провайдер зафиксирован для старта: OpenRouter 
 3. Audit Out of Scope — причины всё ещё актуальны?
 
 ---
-*Последнее обновление: 2026-06-03 — старт milestone v1.1 Ingestion Pipeline*
+*Последнее обновление: 2026-06-14 — Фаза 7 (Ingestion API) завершена → milestone v1.1 Ingestion Pipeline COMPLETE. PDF через POST /documents → Celery → Neo4j → find_candidates_by_skill подтверждён end-to-end.*
