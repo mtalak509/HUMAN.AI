@@ -20,10 +20,12 @@ files_reviewed_list:
   - tests/test_pipeline_task_unit.py
 findings:
   critical: 1
+  critical_resolved: 1
   warning: 6
   info: 5
   total: 12
 status: issues_found
+note: "CR-01 (critical) resolved in commit 4c7759a. Remaining 6 warnings + 5 info deferred (tracked)."
 ---
 
 # Phase 7: Code Review Report
@@ -47,6 +49,8 @@ However, there is one BLOCKER: a duplicate, non-DI definition of `get_db`/`get_s
 **Issue:** Each stage wraps its work in `try/except` and calls `set_failed(s, ...)` inside `async with db.session()`. If Neo4j becomes unavailable *after* the initial `is_connected` check (line 64) but during a stage — a realistic failure mode, since parse/extract/write involve long-running I/O and LLM calls of up to 60s — then `db.session()` raises `RuntimeError` (see `FakeGraphDB.session` semantics and `GraphDB`), and that new exception replaces the original stage exception. The document is left permanently in `processing` (set at line 72) with no `failed` status, no `error`, and no `failed_stage`. The GET endpoint will report `processing` forever; the D-05 dedup logic (line 167) then refuses to re-enqueue it (`processing` -> 202 task_id=null), so the document is wedged with no operator recovery path short of manual Cypher.
 
 This is a data-integrity/availability defect: the pipeline's core promise (T-07-03: "never a silent success-with-no-data state") has a symmetric hole on the failure side — a silent stuck-in-processing state.
+
+**✅ RESOLVED (commit `4c7759a`, 2026-06-14):** Failure recording is now best-effort via a new `_record_failure()` helper that catches its own session errors (logs them) and never raises, so the ORIGINAL stage exception always propagates to Celery as the observable failure. A regression test (`test_cr01_failure_recording_does_not_mask_original_exception`) simulates a mid-pipeline Neo4j drop and asserts the original error surfaces. Note: a mid-pipeline drop still leaves the doc at `processing` (Neo4j is down — nothing can write `failed`), but the run is now observably failed (Celery records the real exception) rather than silently swallowed; once Neo4j returns, the doc surfaces via normal recovery. The masking bug is gone.
 
 **Fix:** Make the failure-recording best-effort and preserve the original exception:
 

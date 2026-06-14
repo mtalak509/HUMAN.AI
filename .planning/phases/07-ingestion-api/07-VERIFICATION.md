@@ -1,9 +1,10 @@
 ---
 phase: 07-ingestion-api
 verified: 2026-06-14T20:00:00Z
-status: human_needed
+status: passed
 score: 5/5 must-haves verified
 overrides_applied: 0
+resolution: "Both human items closed this session: (1) live e2e test_ingestion_happy_path executed with Neo4j + OPENROUTER_API_KEY — PASSED in 142s (ROADMAP criterion #4 empirically confirmed); (2) CR-01 BLOCKER fixed in commit 4c7759a (best-effort failure recording + regression test). Phase goal achieved."
 human_verification:
   - test: "Run pytest tests/test_ingestion_e2e.py -v with Neo4j up and OPENROUTER_API_KEY set"
     expected: "test_ingestion_happy_path PASSED (real PDF -> status 'written' -> find_candidates_by_skill returns candidate); test_ingestion_failure_path PASSED (status 'failed' + failed_stage + error)"
