@@ -105,4 +105,4 @@ Plans:
 | 4. PDF-парсер | 2/2 | Complete | 2026-06-11 |
 | 5. LLM-экстрактор | 2/2 | Complete | 2026-06-11 |
 | 6. Graph Writer | 2/2 | Complete | 2026-06-12 |
-| 7. Ingestion API | 0/3 | Pending | — |
+| 7. Ingestion API | 0/3 | Planned — ready to execute | — |

@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
-status: Executing Phase 7
-last_updated: "2026-06-14T17:34:43.228Z"
+status: Phase 7 planned — ready to execute
+last_updated: "2026-06-14T17:51:36.709Z"
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 6
+  total_plans: 9
   completed_plans: 6
-  percent: 100
+  percent: 86
 ---
 
 # Состояние проекта
@@ -23,10 +23,10 @@ progress:
 
 ## Текущая позиция
 
-Фаза: 7 — Ingestion API (контекст собран, готова к планированию)
-Статус: 07-CONTEXT.md создан — обсуждены статус-трекинг, дубликаты, ошибки/ретраи (D-01…D-07); следующий шаг: /gsd-plan-phase 7
-Последняя активность: 2026-06-14 — 07: discuss-phase завершён (CONTEXT.md закоммичен)
-Resume: .planning/phases/07-ingestion-api/07-CONTEXT.md
+Фаза: 7 — Ingestion API (спланирована, готова к исполнению)
+Статус: 3 плана созданы (07-01 Celery task+статусы / 07-02 API эндпоинты / 07-03 e2e); plan-checker 0 блокеров, 3 warning'а исправлены вручную (D-03 backend, D-06 reset_for_requeue, eager-mode trap); следующий шаг: /gsd-execute-phase 7
+Последняя активность: 2026-06-14 — 07: plan-phase завершён (3 PLAN.md, без research, Nyquist off для рана)
+Resume: .planning/phases/07-ingestion-api/07-01-PLAN.md
 
 Прогресс: [█████████░] 86%
 
