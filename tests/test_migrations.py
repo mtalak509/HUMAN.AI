@@ -61,4 +61,4 @@ async def test_apply_all_degraded_is_noop(settings: Settings) -> None:
 
     assert db.is_connected is False
     assert len(CONSTRAINTS) == 12
-    assert len(INDEXES) == 4
+    assert len(INDEXES) == 5  # +document_processing_status_idx (Phase 7, 07-01)
