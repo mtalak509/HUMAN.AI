@@ -53,6 +53,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="HUMAN.AI", version="0.1.0", lifespan=lifespan)
 
+# Register routers (import after app is defined to avoid circular imports)
+from api.routers import documents  # noqa: E402
+
+app.include_router(documents.router)
+
 
 def get_settings(request: Request) -> Settings:
     return cast(Settings, request.app.state.settings)
