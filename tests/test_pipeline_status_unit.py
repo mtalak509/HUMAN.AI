@@ -1,7 +1,11 @@
-"""Unit tests for Phase 7 pipeline status — Task 1: Document model extensions.
+"""Unit tests for Phase 7 pipeline status — Tasks 1 & 2.
 
-Tests the Document model's Phase 7 additions (processing_status, error, failed_stage)
-and the new INDEXES entry for document_processing_status_idx.
+Tests:
+ - Task 1: Document model Phase 7 additions (processing_status, error, failed_stage)
+ - Task 1: INDEXES entry for document_processing_status_idx
+ - Task 2: Status string constants in core.pipeline.status
+ - Task 2: Celery app broker/backend config (D-03: no result backend)
+
 No infra required — pure unit tests.
 """
 
@@ -80,3 +84,39 @@ def test_document_processing_status_idx_cypher_correct():
     assert "Document" in cypher
     assert "processing_status" in cypher
     assert "IF NOT EXISTS" in cypher
+
+
+# ---------------------------------------------------------------------------
+# Task 2: Status string constants
+# ---------------------------------------------------------------------------
+
+
+def test_status_constants_values():
+    """Status constants equal their expected literal values."""
+    from core.pipeline.status import (
+        STATUS_QUEUED,
+        STATUS_PROCESSING,
+        STATUS_WRITTEN,
+        STATUS_FAILED,
+    )
+    assert STATUS_QUEUED == "queued"
+    assert STATUS_PROCESSING == "processing"
+    assert STATUS_WRITTEN == "written"
+    assert STATUS_FAILED == "failed"
+
+
+# ---------------------------------------------------------------------------
+# Task 2: Celery app config (D-03 — no result backend)
+# ---------------------------------------------------------------------------
+
+
+def test_celery_broker_url_is_redis():
+    """celery_app.conf.broker_url starts with redis:// (uses Settings.redis_url)."""
+    from core.pipeline.celery_app import celery_app
+    assert celery_app.conf.broker_url.startswith("redis://")
+
+
+def test_celery_no_result_backend():
+    """celery_app has no result backend (D-03: Neo4j is sole source of truth)."""
+    from core.pipeline.celery_app import celery_app
+    assert not celery_app.conf.result_backend
