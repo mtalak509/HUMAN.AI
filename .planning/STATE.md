@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: milestone
-status: Phase 7 planned — ready to execute
-last_updated: "2026-06-14T17:51:36.709Z"
+status: Phase 7 executing — plan 07-01 complete, 07-02 next
+last_updated: "2026-06-14T18:40:00Z"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 9
-  completed_plans: 6
-  percent: 86
+  completed_plans: 7
+  percent: 78
 ---
 
 # Состояние проекта
@@ -23,10 +23,10 @@ progress:
 
 ## Текущая позиция
 
-Фаза: 7 — Ingestion API (спланирована, готова к исполнению)
-Статус: 3 плана созданы (07-01 Celery task+статусы / 07-02 API эндпоинты / 07-03 e2e); plan-checker 0 блокеров, 3 warning'а исправлены вручную (D-03 backend, D-06 reset_for_requeue, eager-mode trap); следующий шаг: /gsd-execute-phase 7
-Последняя активность: 2026-06-14 — 07: plan-phase завершён (3 PLAN.md, без research, Nyquist off для рана)
-Resume: .planning/phases/07-ingestion-api/07-01-PLAN.md
+Фаза: 7 — Ingestion API (исполнение: 07-01 ✅ завершён)
+Статус: 07-01 DONE (Celery task + status helpers + Document model extension); следующий план: 07-02 (API эндпоинты)
+Последняя активность: 2026-06-14 — 07-01 выполнен: process_document task, status.py, celery_app.py, 17 unit tests
+Resume: .planning/phases/07-ingestion-api/07-02-PLAN.md
 
 Прогресс: [█████████░] 86%
 
@@ -62,6 +62,12 @@ Resume: .planning/phases/07-ingestion-api/07-01-PLAN.md
 - Один Fact на уникальный навык (D-07) — по объединённому множеству, без дублей ✓
 - GraphWriter DI-конструктор (db=None safe) + is_connected guard + graceful degradation (T-06-07) ✓
 - execute_write + одна транзакция для атомарности; Document только MATCH-ится (T-06-02) ✓
+- D-03: NO Celery result backend — processing_status на Neo4j Document node — единственный источник истины ✓
+- D-07: fail-fast Celery task — нет autoretry_for; 1-retry экстрактора сохранён ✓
+- D-06: failed_stage (parse|extract|write) + error[:2000] на Document при ошибке ✓
+- T-07-03: is_connected=False → RuntimeError до старта pipeline (никогда silent success) ✓
+- merge_document_queued: ON CREATE SET — re-POST in-flight doc не затирает статус (D-05) ✓
+- reset_for_requeue: обнуляет error/failed_stage=null для свежести при повторной постановке (D-05/D-06) ✓
 
 ### Ожидающие задачи
 
@@ -82,5 +88,5 @@ Resume: .planning/phases/07-ingestion-api/07-01-PLAN.md
 ## Непрерывность сессий
 
 Последняя сессия: 2026-06-14
-Остановились на: 07 — discuss-phase завершён, 07-CONTEXT.md готов (статусы/дубликаты/ошибки)
-Файл возобновления: .planning/phases/07-ingestion-api/07-CONTEXT.md
+Остановились на: 07-01 — Celery task + status helpers выполнены, 3 коммита, 17 unit-тестов green
+Файл возобновления: .planning/phases/07-ingestion-api/07-02-PLAN.md

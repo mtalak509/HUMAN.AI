@@ -45,7 +45,7 @@
 
 - [ ] **API-01**: POST /documents принимает PDF, возвращает document_id и task_id
 - [ ] **API-02**: GET /documents/{id} возвращает статус (queued/parsing/extracting/writing/written/failed)
-- [ ] **PIPE-01**: Полный цикл parse→extract→write выполняется асинхронно через Celery
+- [x] **PIPE-01**: Полный цикл parse→extract→write выполняется асинхронно через Celery
 
 ## v2 Requirements (отложено)
 
@@ -93,7 +93,7 @@
 | WRITE-04 | Фаза 6 | Pending |
 | API-01 | Фаза 7 | Pending |
 | API-02 | Фаза 7 | Pending |
-| PIPE-01 | Фаза 7 | Pending |
+| PIPE-01 | Фаза 7 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 13 total

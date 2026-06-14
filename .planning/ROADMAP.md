@@ -85,12 +85,12 @@ Plans:
   4. Сквозной тест: POST реального PDF → polling GET до `written` → запрос `find_candidates_by_skill()` находит кандидата
   5. При ошибке на любом шаге — статус `failed` с `error` + `failed_stage` (D-06); повторный POST умный по статусу (D-05: written→reuse, failed→re-run, in-flight→no-dup)
 
-**Plans:** 3 плана
+**Plans:** 1/3 plans executed
 
 Plans:
 
 **Wave 1**
-- [ ] 07-01-PLAN.md — `core/pipeline/` — Celery app + status-хелперы (D-03/D-04) + task `process_document` (parse→extract→write, fail-fast D-06/D-07) + поля Document.processing_status/error/failed_stage + индекс (PIPE-01)
+- [x] 07-01-PLAN.md — `core/pipeline/` — Celery app + status-хелперы (D-03/D-04) + task `process_document` (parse→extract→write, fail-fast D-06/D-07) + поля Document.processing_status/error/failed_stage + индекс (PIPE-01)
 
 **Wave 2** *(blocked on 07-01)*
 - [ ] 07-02-PLAN.md — `api/routers/documents.py` — `POST /documents` (MERGE queued до enqueue D-04, upload-cap+валидация) + `GET /documents/{id}` (D-06) + умный дедуп (D-05) + регистрация роутера (API-01/API-02)
@@ -105,4 +105,4 @@ Plans:
 | 4. PDF-парсер | 2/2 | Complete | 2026-06-11 |
 | 5. LLM-экстрактор | 2/2 | Complete | 2026-06-11 |
 | 6. Graph Writer | 2/2 | Complete | 2026-06-12 |
-| 7. Ingestion API | 0/3 | Planned — ready to execute | — |
+| 7. Ingestion API | 1/3 | In Progress|  |
