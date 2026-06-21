@@ -2,7 +2,6 @@ from loguru import logger
 
 from core.database.graph import GraphDB
 
-
 # ---------------------------------------------------------------------------
 # Constraints: одно уникальное поле-идентификатор на тип узла
 # ---------------------------------------------------------------------------
@@ -24,14 +23,14 @@ CONSTRAINTS: list[tuple[str, str]] = [
         "FOR (n:Skill) REQUIRE n.name IS UNIQUE",
     ),
     (
-        "role_title_unique",
-        "CREATE CONSTRAINT role_title_unique IF NOT EXISTS "
-        "FOR (n:Role) REQUIRE n.title IS UNIQUE",
-    ),
-    (
         "company_name_unique",
         "CREATE CONSTRAINT company_name_unique IF NOT EXISTS "
         "FOR (n:Company) REQUIRE n.name IS UNIQUE",
+    ),
+    (
+        "institution_name_unique",
+        "CREATE CONSTRAINT institution_name_unique IF NOT EXISTS "
+        "FOR (n:Institution) REQUIRE n.name IS UNIQUE",
     ),
     (
         "experience_id_unique",
@@ -63,11 +62,6 @@ CONSTRAINTS: list[tuple[str, str]] = [
         "CREATE CONSTRAINT document_id_unique IF NOT EXISTS "
         "FOR (n:Document) REQUIRE n.id IS UNIQUE",
     ),
-    (
-        "fact_id_unique",
-        "CREATE CONSTRAINT fact_id_unique IF NOT EXISTS "
-        "FOR (n:Fact) REQUIRE n.id IS UNIQUE",
-    ),
 ]
 
 # ---------------------------------------------------------------------------
@@ -84,16 +78,6 @@ INDEXES: list[tuple[str, str]] = [
         "experience_is_current_idx",
         "CREATE INDEX experience_is_current_idx IF NOT EXISTS "
         "FOR (n:Experience) ON (n.is_current)",
-    ),
-    (
-        "fact_is_current_idx",
-        "CREATE INDEX fact_is_current_idx IF NOT EXISTS "
-        "FOR (n:Fact) ON (n.is_current)",
-    ),
-    (
-        "fact_predicate_idx",
-        "CREATE INDEX fact_predicate_idx IF NOT EXISTS "
-        "FOR (n:Fact) ON (n.predicate)",
     ),
     (
         "document_processing_status_idx",

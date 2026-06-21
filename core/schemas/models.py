@@ -24,13 +24,6 @@ class Skill(BaseModel):
     created_at: datetime | None = None
 
 
-class Role(BaseModel):
-    title: str  # required — primary identifier
-    canonical_title: str | None = None
-    seniority: str | None = None
-    created_at: datetime | None = None
-
-
 class Company(BaseModel):
     name: str  # required — primary identifier
     canonical_name: str | None = None
@@ -38,8 +31,16 @@ class Company(BaseModel):
     created_at: datetime | None = None
 
 
+class Institution(BaseModel):
+    name: str  # required — primary identifier (mirrors Company)
+    canonical_name: str | None = None
+    created_at: datetime | None = None
+
+
 class Experience(BaseModel):
     id: str
+    role: str | None = None  # job title (was a shared Role node before 2026-06-21)
+    description: str | None = None  # free text — semantic-search payload (v1.2+)
     from_date: str | None = None  # renamed from "from" (Python keyword)
     to_date: str | None = None  # renamed from "to"; None means current
     is_current: bool | None = None
@@ -48,8 +49,7 @@ class Experience(BaseModel):
 
 class Education(BaseModel):
     id: str
-    institution: str | None = None
-    degree: str | None = None
+    degree: str | None = None  # institution is now a separate Institution node
     field: str | None = None
     from_date: str | None = None  # ISO date string
     to_date: str | None = None
@@ -95,12 +95,9 @@ class Document(BaseModel):
     failed_stage: str | None = None       # D-06: parse | extract | write, set only on failure
 
 
-class Fact(BaseModel):
-    id: str
-    predicate: str | None = None  # e.g. "has_skill", "worked_at"
-    value: str | None = None
-    confidence: float | None = None
-    model_version: str | None = None
-    extracted_at: datetime | None = None
-    is_current: bool | None = None
-    created_at: datetime | None = None
+# NOTE: the Role and Fact node types were removed in the 2026-06-21 graph refactor.
+#   - Role → Experience.role (a free-form title is noise as a shared node).
+#   - Fact → provenance moved to the Candidate-[:SOURCED_FROM]->Document edge.
+# The Fact reification layer returns with entity resolution (v1.2), when a single
+# candidate spans multiple source documents and claims can conflict / carry
+# confidence. See docs/project_status.md §3 for the deviation record.

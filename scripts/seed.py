@@ -4,7 +4,8 @@
 Запуск: python scripts/seed.py
 
 Загружает единственного seed-кандидата — Алексей Соколов (id c-001).
-Задействует все 12 типов узлов онтологии.
+Задействует все 11 типов узлов онтологии (после рефакторинга 2026-06-21:
+Role → Experience.role, Fact → ребро SOURCED_FROM, добавлен Institution).
 Повторный запуск не создаёт дублей (MERGE-ключи).
 """
 
@@ -71,29 +72,23 @@ async def _seed_candidate(session) -> None:  # noqa: ANN001
     )
     logger.info("nodes: Company x2")
 
-    # Roles (MERGE по title)
+    # Institution (MERGE по name — общая сущность, как Company)
     await session.run(
-        "MERGE (n:Role {title: $title}) "
-        "ON CREATE SET n.seniority=$seniority "
-        "ON MATCH SET n.seniority=$seniority",
-        title="Senior Python Engineer",
-        seniority="senior",
+        "MERGE (n:Institution {name: $name})",
+        name="МГУ им. Ломоносова",
     )
-    await session.run(
-        "MERGE (n:Role {title: $title}) "
-        "ON CREATE SET n.seniority=$seniority "
-        "ON MATCH SET n.seniority=$seniority",
-        title="Python Developer",
-        seniority="middle",
-    )
-    logger.info("nodes: Role x2")
+    logger.info("node: Institution МГУ")
 
-    # Experience 1 (текущая)
+    # Experience 1 (текущая) — role/description теперь свойства узла
     await session.run(
         "MERGE (n:Experience {id: $id}) "
-        "ON CREATE SET n.from_date=$from_date, n.is_current=$is_current "
-        "ON MATCH SET n.from_date=$from_date, n.is_current=$is_current",
+        "ON CREATE SET n.role=$role, n.description=$description, "
+        "n.from_date=$from_date, n.is_current=$is_current "
+        "ON MATCH SET n.role=$role, n.description=$description, "
+        "n.from_date=$from_date, n.is_current=$is_current",
         id="exp-001",
+        role="Senior Python Engineer",
+        description="Разработка graph-based retrieval, Neo4j, FastAPI.",
         from_date="2021-01-01",
         is_current=True,
     )
@@ -102,24 +97,27 @@ async def _seed_candidate(session) -> None:  # noqa: ANN001
     # Experience 2 (прошлая)
     await session.run(
         "MERGE (n:Experience {id: $id}) "
-        "ON CREATE SET n.from_date=$from_date, n.to_date=$to_date, n.is_current=$is_current "
-        "ON MATCH SET n.from_date=$from_date, n.to_date=$to_date, n.is_current=$is_current",
+        "ON CREATE SET n.role=$role, n.description=$description, "
+        "n.from_date=$from_date, n.to_date=$to_date, n.is_current=$is_current "
+        "ON MATCH SET n.role=$role, n.description=$description, "
+        "n.from_date=$from_date, n.to_date=$to_date, n.is_current=$is_current",
         id="exp-002",
+        role="Python Developer",
+        description="Бэкенд на Python, PostgreSQL, ETL-пайплайны.",
         from_date="2018-03-01",
         to_date="2020-12-31",
         is_current=False,
     )
     logger.info("node: Experience exp-002")
 
-    # Education
+    # Education — institution вынесен в отдельный узел Institution
     await session.run(
         "MERGE (n:Education {id: $id}) "
-        "ON CREATE SET n.institution=$institution, n.degree=$degree, "
+        "ON CREATE SET n.degree=$degree, "
         "n.field=$field, n.from_date=$from_date, n.to_date=$to_date "
-        "ON MATCH SET n.institution=$institution, n.degree=$degree, "
+        "ON MATCH SET n.degree=$degree, "
         "n.field=$field, n.from_date=$from_date, n.to_date=$to_date",
         id="edu-001",
-        institution="МГУ им. Ломоносова",
         degree="Магистр",
         field="Прикладная математика",
         from_date="2012-09-01",
@@ -173,38 +171,6 @@ async def _seed_candidate(session) -> None:  # noqa: ANN001
     )
     logger.info("node: Document doc-001")
 
-    # Fact 1 (provenance для Python skill)
-    await session.run(
-        "MERGE (n:Fact {id: $id}) "
-        "ON CREATE SET n.predicate=$predicate, n.value=$value, "
-        "n.confidence=$confidence, n.model_version=$model_version, n.is_current=$is_current "
-        "ON MATCH SET n.predicate=$predicate, n.value=$value, "
-        "n.confidence=$confidence, n.model_version=$model_version, n.is_current=$is_current",
-        id="f-001",
-        predicate="has_skill",
-        value="Python",
-        confidence=0.95,
-        model_version="seed-v1",
-        is_current=True,
-    )
-    logger.info("node: Fact f-001")
-
-    # Fact 2 (provenance для TechFlow опыта)
-    await session.run(
-        "MERGE (n:Fact {id: $id}) "
-        "ON CREATE SET n.predicate=$predicate, n.value=$value, "
-        "n.confidence=$confidence, n.model_version=$model_version, n.is_current=$is_current "
-        "ON MATCH SET n.predicate=$predicate, n.value=$value, "
-        "n.confidence=$confidence, n.model_version=$model_version, n.is_current=$is_current",
-        id="f-002",
-        predicate="worked_at",
-        value="TechFlow Analytics",
-        confidence=1.0,
-        model_version="seed-v1",
-        is_current=True,
-    )
-    logger.info("node: Fact f-002")
-
     # ------------------------------------------------------------------
     # 2. Связи
     # ------------------------------------------------------------------
@@ -239,14 +205,8 @@ async def _seed_candidate(session) -> None:  # noqa: ANN001
         e_id="exp-001",
         name="TechFlow Analytics",
     )
-    await session.run(
-        "MATCH (e:Experience {id: $e_id}) MATCH (r:Role {title: $title}) "
-        "MERGE (e)-[:AS_ROLE]->(r)",
-        e_id="exp-001",
-        title="Senior Python Engineer",
-    )
 
-    # Experience exp-002: связи с кандидатом, компанией, ролью
+    # Experience exp-002: связи с кандидатом, компанией
     await session.run(
         "MATCH (c:Candidate {id: $c_id}) MATCH (e:Experience {id: $e_id}) "
         "MERGE (c)-[:HAS_EXPERIENCE]->(e)",
@@ -259,19 +219,19 @@ async def _seed_candidate(session) -> None:  # noqa: ANN001
         e_id="exp-002",
         name="DataVision Lab",
     )
-    await session.run(
-        "MATCH (e:Experience {id: $e_id}) MATCH (r:Role {title: $title}) "
-        "MERGE (e)-[:AS_ROLE]->(r)",
-        e_id="exp-002",
-        title="Python Developer",
-    )
 
-    # (Candidate)-[:HAS_EDUCATION]->(Education)
+    # (Candidate)-[:HAS_EDUCATION]->(Education)-[:AT_INSTITUTION]->(Institution)
     await session.run(
         "MATCH (c:Candidate {id: $c_id}) MATCH (ed:Education {id: $ed_id}) "
         "MERGE (c)-[:HAS_EDUCATION]->(ed)",
         c_id="c-001",
         ed_id="edu-001",
+    )
+    await session.run(
+        "MATCH (ed:Education {id: $ed_id}) MATCH (i:Institution {name: $name}) "
+        "MERGE (ed)-[:AT_INSTITUTION]->(i)",
+        ed_id="edu-001",
+        name="МГУ им. Ломоносова",
     )
 
     # (Candidate)-[:APPLIED_TO]->(Vacancy)
@@ -304,44 +264,16 @@ async def _seed_candidate(session) -> None:  # noqa: ANN001
         c_id="c-001",
     )
 
-    # Fact f-001: HAS_FACT, EXTRACTED_FROM, SUPPORTS (Skill Python)
+    # (Candidate)-[:SOURCED_FROM {model_version, extracted_at}]->(Document)
+    # Provenance backbone (заменил reified Fact-слой при рефакторинге 2026-06-21).
     await session.run(
-        "MATCH (c:Candidate {id: $c_id}) MATCH (f:Fact {id: $f_id}) "
-        "MERGE (c)-[:HAS_FACT]->(f)",
+        "MATCH (c:Candidate {id: $c_id}) MATCH (d:Document {id: $d_id}) "
+        "MERGE (c)-[r:SOURCED_FROM]->(d) "
+        "SET r.model_version=$model_version, r.extracted_at=$extracted_at",
         c_id="c-001",
-        f_id="f-001",
-    )
-    await session.run(
-        "MATCH (f:Fact {id: $f_id}) MATCH (d:Document {id: $d_id}) "
-        "MERGE (f)-[:EXTRACTED_FROM]->(d)",
-        f_id="f-001",
         d_id="doc-001",
-    )
-    await session.run(
-        "MATCH (f:Fact {id: $f_id}) MATCH (s:Skill {name: $name}) "
-        "MERGE (f)-[:SUPPORTS]->(s)",
-        f_id="f-001",
-        name="Python",
-    )
-
-    # Fact f-002: HAS_FACT, EXTRACTED_FROM, SUPPORTS (Experience exp-001)
-    await session.run(
-        "MATCH (c:Candidate {id: $c_id}) MATCH (f:Fact {id: $f_id}) "
-        "MERGE (c)-[:HAS_FACT]->(f)",
-        c_id="c-001",
-        f_id="f-002",
-    )
-    await session.run(
-        "MATCH (f:Fact {id: $f_id}) MATCH (d:Document {id: $d_id}) "
-        "MERGE (f)-[:EXTRACTED_FROM]->(d)",
-        f_id="f-002",
-        d_id="doc-001",
-    )
-    await session.run(
-        "MATCH (f:Fact {id: $f_id}) MATCH (e:Experience {id: $e_id}) "
-        "MERGE (f)-[:SUPPORTS]->(e)",
-        f_id="f-002",
-        e_id="exp-001",
+        model_version="seed-v1",
+        extracted_at="2026-06-21T00:00:00+00:00",
     )
 
     logger.info("relationships: all wired")

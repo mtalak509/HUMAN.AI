@@ -77,7 +77,7 @@ if __name__ == "__main__":
     from neo4j import AsyncGraphDatabase
 
     async def main():
-        driver = AsyncGraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "changeme"))
+        driver = AsyncGraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "whiterabbit"))
         result_find_candidates_by_skill = await find_candidates_by_skill(driver, "Python")
         print(result_find_candidates_by_skill)
         result_find_candidates_by_company = await find_candidates_by_company(driver, "TechFlow Analytics")

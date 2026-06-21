@@ -5,7 +5,7 @@ RUN addgroup --system app && adduser --system --ingroup app app
 WORKDIR /app
 
 COPY pyproject.toml .
-RUN pip install --no-cache-dir -e ".[dev]"
+RUN pip install --no-cache-dir --timeout 120 --retries 10 -e ".[dev]"
 
 COPY --chown=app:app . .
 

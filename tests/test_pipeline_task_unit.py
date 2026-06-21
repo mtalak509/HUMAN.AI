@@ -235,6 +235,67 @@ async def test_process_document_sets_processing_then_written(fake_db, tmp_path, 
 
 
 # ---------------------------------------------------------------------------
+# Test: parsed.json is persisted before the graph write
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_process_document_saves_parsed_json(fake_db, tmp_path, monkeypatch):
+    """On success, the validated extractor output is dumped to parsed.json.
+
+    Mirrors rnd's parsed.json: lets prod extraction be diffed against rnd and
+    isolates graph-vs-extraction errors. Must be written BEFORE the graph write.
+    """
+    import json
+
+    from core.pipeline import tasks as tasks_mod
+
+    doc_dir = tmp_path / "documents" / DOCUMENT_ID
+    doc_dir.mkdir(parents=True)
+    (doc_dir / "resume.pdf").write_bytes(b"%PDF fake")
+
+    parse_result = _make_fake_parse_result(DOCUMENT_ID)
+    candidate = _make_fake_candidate(DOCUMENT_ID)
+
+    monkeypatch.setattr(tasks_mod, "GraphDB", lambda **kwargs: fake_db)
+
+    mock_parser_cls = MagicMock()
+    mock_parser_cls.return_value.parse = AsyncMock(return_value=parse_result)
+    monkeypatch.setattr(tasks_mod, "PdfParser", mock_parser_cls)
+
+    mock_extractor_cls = MagicMock()
+    mock_extractor_cls.return_value.extract = AsyncMock(return_value=candidate)
+    monkeypatch.setattr(tasks_mod, "Extractor", mock_extractor_cls)
+
+    # Writer asserts parsed.json already exists by the time write() runs (ordering)
+    parsed_path = doc_dir / "parsed.json"
+
+    async def assert_parsed_exists_then_ok(cand, doc_id):
+        assert parsed_path.exists(), "parsed.json must be saved BEFORE graph write"
+
+    mock_writer_cls = MagicMock()
+    mock_writer_cls.return_value.write = AsyncMock(side_effect=assert_parsed_exists_then_ok)
+    monkeypatch.setattr(tasks_mod, "GraphWriter", mock_writer_cls)
+
+    from core.config import Settings
+    fake_settings = MagicMock(spec=Settings)
+    fake_settings.neo4j_uri = "bolt://localhost:7687"
+    fake_settings.neo4j_user = "neo4j"
+    fake_settings.neo4j_password = "test"
+    fake_settings.storage_root = tmp_path
+    monkeypatch.setattr(tasks_mod, "get_settings", lambda: fake_settings)
+
+    await tasks_mod._run(DOCUMENT_ID)
+
+    # File exists and contains the candidate's parsed fields
+    assert parsed_path.exists()
+    saved = json.loads(parsed_path.read_text(encoding="utf-8"))
+    assert saved["full_name"] == "Test Candidate"
+    assert saved["document_id"] == DOCUMENT_ID
+    assert saved["model_version"] == "test-model"
+
+
+# ---------------------------------------------------------------------------
 # Test: extract failure path
 # ---------------------------------------------------------------------------
 

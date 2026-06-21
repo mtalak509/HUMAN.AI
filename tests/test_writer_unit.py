@@ -3,13 +3,15 @@
 Tests use mocked Neo4j db — no network calls, no infra required.
 All async tests use session-scoped loop (per CLAUDE.md asyncio fixture pattern).
 
-Behaviour tested:
+Behaviour tested (graph refactor 2026-06-21):
   1. ID helpers are deterministic: same inputs → same hash; different inputs → different hash.
   2. Skill union + dedup: top-level ∪ skills_mentioned, .strip() collapse, case preserved.
   3. Graceful degradation: db=None → no exception, no session entered.
      db.is_connected=False → session() never called.
-  4. One has_skill Fact per UNIQUE skill (D-07): no duplicate fact ids even when a skill
-     appears in both top-level skills and in a role's skills_mentioned.
+  4. Two experiences at the same company get DISTINCT Experience nodes (WR-01).
+  5. Blank-company experience is skipped (WR-02).
+  6. Provenance edge SOURCED_FROM is written once, carrying model_version + extracted_at.
+  7. Institution is a shared node linked via AT_INSTITUTION.
 """
 
 from contextlib import asynccontextmanager
@@ -19,9 +21,12 @@ import pytest
 
 from core.extractor.schema import Contact, Education, Experience, ExtractedCandidate
 from core.writer.cypher import (
-    LINK_SUPPORTS_EXPERIENCE,
+    LINK_AT_INSTITUTION,
+    LINK_HAS_EXPERIENCE,
+    LINK_SOURCED_FROM,
+    MERGE_EDUCATION,
     MERGE_EXPERIENCE,
-    MERGE_FACT,
+    MERGE_INSTITUTION,
     MERGE_SKILL,
 )
 from core.writer.graph_writer import GraphWriter
@@ -71,13 +76,49 @@ def _make_candidate(
     )
 
 
+def _build_mock_db_with_capturing_tx():
+    """Build a mock GraphDB whose execute_write runs the real _write_tx against a mock tx.
+
+    Returns (mock_db, mock_tx) so callers can inspect tx.run call_args_list.
+    """
+    mock_tx = MagicMock()
+    mock_tx.run = AsyncMock()
+
+    # execute_write(fn, *args) — call fn(mock_tx, *args) directly
+    async def fake_execute_write(fn, *args, **kwargs):
+        await fn(mock_tx, *args, **kwargs)
+
+    mock_session = MagicMock()
+    mock_session.execute_write = fake_execute_write
+
+    @asynccontextmanager
+    async def fake_session_cm():
+        yield mock_session
+
+    mock_db = MagicMock()
+    mock_db.is_connected = True
+    mock_db.session = fake_session_cm
+
+    return mock_db, mock_tx
+
+
+def _calls_for(mock_tx, statement: str) -> list[dict]:
+    """All kwargs dicts for tx.run calls whose statement == `statement`."""
+    out = []
+    for args, kwargs in mock_tx.run.call_args_list:
+        stmt = args[0] if args else kwargs.get("query", "")
+        if stmt == statement:
+            out.append(kwargs)
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Test 1: ID helpers are deterministic
 # ---------------------------------------------------------------------------
 
 
 def test_ids_deterministic() -> None:
-    """All 4 ID helpers: same inputs → equal hash; different inputs → different hash."""
+    """ID helpers: same inputs → equal hash; different inputs → different hash."""
     doc = "docabc"
 
     # _experience_id
@@ -89,12 +130,17 @@ def test_ids_deterministic() -> None:
     assert a != c, "_experience_id must differ for different from_date"
 
     # _education_id
-    a = GraphWriter._education_id(doc, "MIT", "2016")
-    b = GraphWriter._education_id(doc, "MIT", "2016")
+    a = GraphWriter._education_id(doc, "MIT", "BSc", "CS", "2016", "2020")
+    b = GraphWriter._education_id(doc, "MIT", "BSc", "CS", "2016", "2020")
     assert a == b
     assert len(a) == 40
-    c = GraphWriter._education_id(doc, "Stanford", "2016")
+    c = GraphWriter._education_id(doc, "Stanford", "BSc", "CS", "2016", "2020")
     assert a != c
+    # Same institution + from_date but different degree → distinct id (the
+    # multiple-degrees-from-one-university collision the old key suffered).
+    d = GraphWriter._education_id(doc, "MIT", "MSc", "CS", None, "2022")
+    e = GraphWriter._education_id(doc, "MIT", "BSc", "CS", None, "2020")
+    assert d != e, "different degree/to_date must yield distinct education ids"
 
     # _contact_id
     a = GraphWriter._contact_id(doc, "email", "x@example.com")
@@ -102,14 +148,6 @@ def test_ids_deterministic() -> None:
     assert a == b
     assert len(a) == 40
     c = GraphWriter._contact_id(doc, "phone", "x@example.com")
-    assert a != c
-
-    # _fact_id
-    a = GraphWriter._fact_id(doc, "has_skill", "Python")
-    b = GraphWriter._fact_id(doc, "has_skill", "Python")
-    assert a == b
-    assert len(a) == 40
-    c = GraphWriter._fact_id(doc, "has_skill", "FastAPI")
     assert a != c
 
 
@@ -134,12 +172,7 @@ async def test_skill_union_dedup() -> None:
     mock_db, mock_tx = _build_mock_db_with_capturing_tx()
     await GraphWriter(db=mock_db).write(cand, "docabc")
 
-    # Collect the skill names the writer actually MERGEd
-    merged_skill_names = [
-        kwargs["name"]
-        for (args, kwargs) in mock_tx.run.call_args_list
-        if (args[0] if args else kwargs.get("query", "")) == MERGE_SKILL
-    ]
+    merged_skill_names = [kw["name"] for kw in _calls_for(mock_tx, MERGE_SKILL)]
 
     assert set(merged_skill_names) == {"Python", "FastAPI", "Neo4j"}, (
         f"Expected {{'Python', 'FastAPI', 'Neo4j'}}, got {set(merged_skill_names)}"
@@ -180,70 +213,7 @@ async def test_write_session_never_entered_when_not_connected() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Test 4: One Fact per unique skill — D-07
-# ---------------------------------------------------------------------------
-
-def _build_mock_db_with_capturing_tx():
-    """Build a mock GraphDB whose execute_write runs the real _write_tx against a mock tx.
-
-    Returns (mock_db, mock_tx) so callers can inspect tx.run call_args_list.
-    """
-    mock_tx = MagicMock()
-    mock_tx.run = AsyncMock()
-
-    # execute_write(fn, *args) — call fn(mock_tx, *args) directly
-    async def fake_execute_write(fn, *args, **kwargs):
-        await fn(mock_tx, *args, **kwargs)
-
-    mock_session = MagicMock()
-    mock_session.execute_write = fake_execute_write
-
-    @asynccontextmanager
-    async def fake_session_cm():
-        yield mock_session
-
-    mock_db = MagicMock()
-    mock_db.is_connected = True
-    mock_db.session = fake_session_cm
-
-    return mock_db, mock_tx
-
-
-@pytest.mark.asyncio
-async def test_one_fact_per_unique_skill() -> None:
-    """D-07: exactly one has_skill Fact id per unique skill, zero duplicates."""
-    cand = _make_candidate(
-        top_skills=["Python", "  Python  ", "FastAPI"],
-        exp_skills=["Python", "Neo4j"],
-    )
-    expected_unique_skills = {"Python", "FastAPI", "Neo4j"}
-
-    mock_db, mock_tx = _build_mock_db_with_capturing_tx()
-    writer = GraphWriter(db=mock_db)
-    await writer.write(cand, "docabc")
-
-    # Filter tx.run calls for MERGE_FACT with predicate=="has_skill"
-    has_skill_fact_ids = []
-    for call in mock_tx.run.call_args_list:
-        args, kwargs = call
-        # First positional arg is the statement string
-        stmt = args[0] if args else kwargs.get("query", "")
-        if stmt == MERGE_FACT:
-            if kwargs.get("predicate") == "has_skill":
-                has_skill_fact_ids.append(kwargs["id"])
-
-    # No duplicates
-    assert len(has_skill_fact_ids) == len(set(has_skill_fact_ids)), (
-        f"Duplicate has_skill Fact ids found: {has_skill_fact_ids}"
-    )
-    # Count matches unique skill count
-    assert len(has_skill_fact_ids) == len(expected_unique_skills), (
-        f"Expected {len(expected_unique_skills)} has_skill Facts, got {len(has_skill_fact_ids)}"
-    )
-
-
-# ---------------------------------------------------------------------------
-# Test 5: worked_at Fact does NOT collide for two roles at the same company (WR-01)
+# Test 4: two roles at the same company → distinct Experience nodes (WR-01)
 # ---------------------------------------------------------------------------
 
 
@@ -264,42 +234,34 @@ def _candidate_two_roles_same_company(doc_id: str = "docabc") -> ExtractedCandid
 
 
 @pytest.mark.asyncio
-async def test_worked_at_fact_no_collision_same_company() -> None:
-    """WR-01: two experiences at one company → two distinct worked_at Facts, each
-    supporting its own Experience node (no id collision, no overwritten provenance)."""
+async def test_two_roles_same_company_distinct_experiences() -> None:
+    """WR-01: two experiences at one company → two distinct Experience nodes,
+    each linked to the candidate (no id collision on company name alone)."""
     cand = _candidate_two_roles_same_company()
 
     mock_db, mock_tx = _build_mock_db_with_capturing_tx()
     await GraphWriter(db=mock_db).write(cand, "docabc")
 
-    worked_at_fact_ids = []
-    supports_exp_e_ids = []
-    for call in mock_tx.run.call_args_list:
-        args, kwargs = call
-        stmt = args[0] if args else kwargs.get("query", "")
-        if stmt == MERGE_FACT and kwargs.get("predicate") == "worked_at":
-            worked_at_fact_ids.append(kwargs["id"])
-        if stmt == LINK_SUPPORTS_EXPERIENCE:
-            supports_exp_e_ids.append(kwargs["e_id"])
+    exp_ids = [kw["id"] for kw in _calls_for(mock_tx, MERGE_EXPERIENCE)]
+    has_exp_ids = [kw["e_id"] for kw in _calls_for(mock_tx, LINK_HAS_EXPERIENCE)]
 
-    # Two experiences → two distinct worked_at Fact ids (the bug produced one)
-    assert len(worked_at_fact_ids) == 2, worked_at_fact_ids
-    assert len(set(worked_at_fact_ids)) == 2, (
-        f"worked_at Fact ids collided: {worked_at_fact_ids}"
-    )
-    # Each Fact supports a distinct Experience
-    assert len(set(supports_exp_e_ids)) == 2, supports_exp_e_ids
+    assert len(exp_ids) == 2, exp_ids
+    assert len(set(exp_ids)) == 2, f"Experience ids collided: {exp_ids}"
+    assert set(has_exp_ids) == set(exp_ids), "each Experience linked to candidate"
+    # role is stored on the node now (no shared Role node)
+    roles = {kw["role"] for kw in _calls_for(mock_tx, MERGE_EXPERIENCE)}
+    assert roles == {"Junior Engineer", "Senior Engineer"}, roles
 
 
 # ---------------------------------------------------------------------------
-# Test 6: experience with blank company/role is skipped (WR-02)
+# Test 5: experience with blank company is skipped (WR-02)
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
 async def test_blank_company_experience_skipped() -> None:
     """WR-02: an experience whose company is blank after strip creates no
-    Experience node and no worked_at Fact — no garbage shared nodes keyed on ''."""
+    Experience node — no garbage shared nodes keyed on ''."""
     cand = ExtractedCandidate(
         document_id="docabc",
         model_version="test-model",
@@ -316,16 +278,99 @@ async def test_blank_company_experience_skipped() -> None:
     mock_db, mock_tx = _build_mock_db_with_capturing_tx()
     await GraphWriter(db=mock_db).write(cand, "docabc")
 
-    merge_exp_calls = 0
-    worked_at_facts = 0
-    for call in mock_tx.run.call_args_list:
-        args, kwargs = call
-        stmt = args[0] if args else kwargs.get("query", "")
-        if stmt == MERGE_EXPERIENCE:
-            merge_exp_calls += 1
-        if stmt == MERGE_FACT and kwargs.get("predicate") == "worked_at":
-            worked_at_facts += 1
+    assert len(_calls_for(mock_tx, MERGE_EXPERIENCE)) == 1, "only the valid experience"
 
-    # Only the valid experience is written
-    assert merge_exp_calls == 1, f"Expected 1 Experience node, got {merge_exp_calls}"
-    assert worked_at_facts == 1, f"Expected 1 worked_at Fact, got {worked_at_facts}"
+
+# ---------------------------------------------------------------------------
+# Test 6: provenance edge SOURCED_FROM (replaces the Fact layer)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_sourced_from_edge_written_once_with_provenance() -> None:
+    """Exactly one SOURCED_FROM edge, stamped with model_version + extracted_at."""
+    cand = _make_candidate(doc_id="docabc")
+
+    mock_db, mock_tx = _build_mock_db_with_capturing_tx()
+    await GraphWriter(db=mock_db).write(cand, "docabc")
+
+    calls = _calls_for(mock_tx, LINK_SOURCED_FROM)
+    assert len(calls) == 1, f"expected exactly one SOURCED_FROM edge, got {len(calls)}"
+    kw = calls[0]
+    assert kw["c_id"] == "docabc"
+    assert kw["d_id"] == "docabc"
+    assert kw["model_version"] == "test-model"  # caller-stamped, not the LLM
+    assert kw["extracted_at"], "extracted_at must be set"
+
+
+# ---------------------------------------------------------------------------
+# Test 7: Institution is a shared node linked via AT_INSTITUTION
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_institution_node_and_edge() -> None:
+    """Education links to a shared Institution node (AT_INSTITUTION)."""
+    cand = _make_candidate(doc_id="docabc")  # education institution = "MIT"
+
+    mock_db, mock_tx = _build_mock_db_with_capturing_tx()
+    await GraphWriter(db=mock_db).write(cand, "docabc")
+
+    inst_names = [kw["name"] for kw in _calls_for(mock_tx, MERGE_INSTITUTION)]
+    assert inst_names == ["MIT"], inst_names
+    assert len(_calls_for(mock_tx, LINK_AT_INSTITUTION)) == 1
+
+
+@pytest.mark.asyncio
+async def test_multiple_degrees_same_institution_distinct_educations() -> None:
+    """WR-01 (Education): three degrees from one university with from_date=None
+    must produce three distinct Education nodes — not collapse onto one MERGE id.
+
+    Regression for the Talakin resume: bachelor's + master's + a refresher course
+    all at МИРЭА, all with from_date=None. The old key (institution + from_date)
+    hashed identically for all three, so only the last survived in the graph.
+    """
+    uni = "МИРЭА — Российский технологический университет, Москва"
+    cand = ExtractedCandidate(
+        document_id="docabc",
+        model_version="test-model",
+        full_name="Test User",
+        education=[
+            Education(institution=uni, degree="Магистр", field="Управление",
+                      from_date=None, to_date="2022"),
+            Education(institution=uni, degree="Бакалавр", field="Инноватика",
+                      from_date=None, to_date="2020"),
+            Education(institution=uni, degree="Повышение квалификации",
+                      field="Менеджмент в ИТ", from_date=None, to_date="2022"),
+        ],
+        skills=[],
+    )
+
+    mock_db, mock_tx = _build_mock_db_with_capturing_tx()
+    await GraphWriter(db=mock_db).write(cand, "docabc")
+
+    edu_calls = _calls_for(mock_tx, MERGE_EDUCATION)
+    edu_ids = [kw["id"] for kw in edu_calls]
+    degrees = [kw["degree"] for kw in edu_calls]
+
+    assert len(edu_ids) == 3, f"expected 3 Education MERGEs, got {len(edu_ids)}"
+    assert len(set(edu_ids)) == 3, f"Education ids collided: {edu_ids}"
+    assert set(degrees) == {"Магистр", "Бакалавр", "Повышение квалификации"}
+
+
+@pytest.mark.asyncio
+async def test_blank_institution_skipped() -> None:
+    """An education entry with a blank institution creates no Institution link."""
+    cand = ExtractedCandidate(
+        document_id="docabc",
+        model_version="test-model",
+        full_name="Test User",
+        education=[Education(institution="   ", degree="BSc", field="CS")],
+        skills=[],
+    )
+
+    mock_db, mock_tx = _build_mock_db_with_capturing_tx()
+    await GraphWriter(db=mock_db).write(cand, "docabc")
+
+    assert len(_calls_for(mock_tx, MERGE_INSTITUTION)) == 0
+    assert len(_calls_for(mock_tx, LINK_AT_INSTITUTION)) == 0

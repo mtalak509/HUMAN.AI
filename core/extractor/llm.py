@@ -22,24 +22,91 @@ from core.config import Settings, get_settings
 from core.extractor.schema import ExtractedCandidate
 
 # ---------------------------------------------------------------------------
-# Prompt template — transferred verbatim from rnd/src/openrouter_client.py
-# (D-discretion: do not alter the strategy)
+# Prompt template — production extractor prompt.
+#
+# Supersedes the verbatim rnd smoke-test prompt (rnd/src/openrouter_client.py).
+# The smoke-test prompt validated the *approach* (json_object + Pydantic + retry);
+# this version hardens it against the failure modes documented in
+# rnd/smoke_test_findings.md and aligns field rules with what the downstream
+# GraphWriter needs (shared Company/Institution nodes, Experience id keyed on
+# company|role|from_date, degree used for filtering, skills = union).
+#
+# Design notes:
+#   - The schema injected via {schema} is pruned of provenance (document_id,
+#     model_version) and computed (is_current) fields — the model must NOT
+#     produce them; they are stamped by _validate. See _extraction_schema().
+#   - Rules are ordered: a single overriding principle (extract, never invent),
+#     then per-field rules, then normalization rules that protect graph dedup.
 # ---------------------------------------------------------------------------
 
-PROMPT_TEMPLATE = """Ты извлекаешь структурированную информацию из резюме кандидата.
-На входе — текст резюме, извлечённый из PDF постранично. Границы страниц
-помечены маркерами `--- PAGE N ---`. Текст может содержать артефакты парсинга
-(склеенные слова, разорванные строки, перепутанный порядок колонок) —
-интерпретируй смысл, не цепляйся за форматирование.
+PROMPT_TEMPLATE = """Ты — система точного извлечения структурированных данных из резюме \
+кандидатов. Твой выход напрямую попадает в граф знаний рекрутинговой платформы, \
+поэтому ценится точность и воспроизводимость, а не полнота любой ценой.
 
-Заполни поля JSON-схемы согласно содержимому.
-Правила:
-- Если поле не упомянуто в резюме — null.
-- Не выдумывай данные, которых нет в тексте.
-- Для текущего места работы to_date = null.
-- skills_mentioned для каждой роли — только навыки, явно упомянутые
-  в описании этой конкретной роли (не сводный список).
-- Сводный список skills — все навыки, которые встречаются в резюме.
+# Вход
+Текст одного резюме, извлечённый из PDF постранично. Границы страниц помечены \
+маркерами `--- PAGE N ---`. Возможны артефакты PDF-парсинга: склеенные слова, \
+разорванные строки, перепутанный порядок колонок (двухколоночный layout), мусорные \
+переносы, повторяющиеся колонтитулы. Восстанавливай смысл текста, но НЕ добавляй \
+информацию, которой в тексте нет.
+
+# Главный принцип
+ИЗВЛЕКАЙ, А НЕ СОЧИНЯЙ. Если данных в тексте нет — оставляй поле пустым (null или \
+[]), а не заполняй правдоподобной догадкой. Любое значение в выходе должно \
+прослеживаться к конкретному месту в тексте резюме. Лучше пропустить факт, чем \
+выдумать. При сомнении между «интерпретировать» и «оставить как есть» — оставляй \
+ближе к тексту.
+
+# Язык
+Сохраняй язык источника: русское резюме → русские значения, английское → \
+английские. Не переводи названия компаний, должностей, навыков и учебных заведений.
+
+# Правила по полям
+- full_name: полное имя кандидата как в резюме (обычно ФИО). Обязательное поле.
+- contacts[]: каждый канал связи отдельным объектом {{type, value}}. type — один из \
+  email | phone | telegram | linkedin | other. value — само значение, очищенное от \
+  подписей и лишних символов ("Email: a@b.ru" → value "a@b.ru"). Не выдумывай \
+  контакты; если канала нет — не добавляй объект. Если канал есть, но тип неясен — \
+  type = "other".
+- experiences[]: места работы, по одному объекту на позицию.
+  - from_date / to_date: формат YYYY-MM, если известен месяц, иначе YYYY. НЕ выдумывай \
+    месяц, которого нет в тексте, и НЕ выдумывай год. Бери ровно ту точность, что в \
+    источнике.
+  - to_date = null для текущего места работы («по настоящее время», «н.в.», \
+    "present", "current"). НИКОГДА не подставляй текущую дату вместо null.
+  - company: название компании-работодателя как в тексте.
+  - role: должность в этой компании.
+  - description: ПОЛНОЕ содержание обязанностей/достижений по этой роли, если оно \
+    есть в тексте. Если описания в резюме нет — null (НЕ сочиняй описание).
+  - skills_mentioned[]: ТОЛЬКО навыки/инструменты, явно упомянутые в описании именно \
+    этой роли. Не переноси сюда навыки из других разделов и не додумывай.
+  - Два периода в одной компании — это два отдельных объекта experiences (не \
+    объединяй).
+- education[]: образование, по одному объекту на запись.
+  - institution: название учебного заведения как в тексте.
+  - degree: уровень/тип квалификации как в источнике (например «Высшее», «Бакалавр», \
+    «Магистр», «Среднее профессиональное», "MBA"). НЕ повышай уровень: колледж / \
+    техникум / училище — это среднее профессиональное, НЕ «высшее». Если уровень не \
+    указан — null.
+  - field: специальность / направление подготовки, если указано, иначе null.
+  - from_date / to_date: годы обучения по тем же правилам дат, иначе null.
+- skills[]: сводный список всех навыков кандидата. Это ОБЪЕДИНЕНИЕ: и навыки из \
+  отдельного раздела «Навыки/Skills», и ВСЕ навыки из skills_mentioned по всем ролям. \
+  Ни один навык, попавший в skills_mentioned, не должен потеряться в skills. Убери \
+  точные дубликаты, но не нормализуй и не переводи формулировки.
+
+# Нормализация (защита от дублей в графе)
+Компании (company) и учебные заведения (institution) — общие узлы графа, по ним \
+ищут «кто работал в X» и «выпускники Y». Поэтому пиши их единообразно: только \
+название, без приписок города/страны/организационно-правовой формы, если они не \
+часть официального имени и не указаны в самом резюме рядом с названием. Не добавляй \
+от себя «, Москва» и подобное. Одну и ту же компанию во всех записях называй \
+одинаково.
+
+# Формат вывода
+Верни ТОЛЬКО валидный JSON-объект по схеме ниже. Без markdown-обёрток, без \
+комментариев, без текста до или после JSON. Поля document_id и model_version в выход \
+не включай — они проставляются системой.
 
 JSON-схема ответа:
 {schema}
@@ -47,23 +114,44 @@ JSON-схема ответа:
 Текст резюме:
 ---
 {resume_text}
----
+---"""
 
-Верни только валидный JSON-объект по схеме, без markdown-обёрток."""
+
+def _extraction_schema() -> dict:
+    """ExtractedCandidate JSON schema pruned for the prompt.
+
+    Removes fields the LLM must NOT produce:
+      - provenance (document_id, model_version) — stamped by _validate (T-05-04).
+      - is_current — a computed_field derived from to_date (defensive: not present
+        in validation-mode schema, but pruned in case the mode changes).
+    """
+    schema = ExtractedCandidate.model_json_schema()
+
+    props = schema.get("properties", {})
+    required = schema.get("required", [])
+    for field in ("document_id", "model_version"):
+        props.pop(field, None)
+        if field in required:
+            required.remove(field)
+
+    experience = schema.get("$defs", {}).get("Experience", {})
+    exp_props = experience.get("properties", {})
+    exp_required = experience.get("required", [])
+    exp_props.pop("is_current", None)
+    if "is_current" in exp_required:
+        exp_required.remove("is_current")
+
+    return schema
 
 
 def _build_prompt(resume_text: str) -> str:
-    """Build the extraction prompt with the current ExtractedCandidate schema injected.
+    """Build the extraction prompt with the pruned ExtractedCandidate schema injected.
 
-    Schema used is ExtractedCandidate (from plan 05-01), NOT the rnd Resume schema.
-    The provenance fields (document_id, model_version) are excluded from the schema
-    shown to the LLM — the model should not generate them; they are stamped by _validate.
+    The provenance fields (document_id, model_version) and the computed is_current
+    field are stripped from the schema shown to the LLM — the model should not
+    generate them; provenance is stamped by _validate, is_current is derived.
     """
-    # Build a schema that excludes provenance fields so the LLM is not asked to produce them.
-    # We use the full schema and let _validate override document_id/model_version anyway.
-    schema_json = json.dumps(
-        ExtractedCandidate.model_json_schema(), ensure_ascii=False, indent=2
-    )
+    schema_json = json.dumps(_extraction_schema(), ensure_ascii=False, indent=2)
     return PROMPT_TEMPLATE.format(schema=schema_json, resume_text=resume_text)
 
 

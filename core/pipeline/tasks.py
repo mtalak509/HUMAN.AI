@@ -1,6 +1,10 @@
 """core.pipeline.tasks — Celery task: process_document.
 
 Orchestrates the full parse -> extract -> write pipeline for a single document.
+Between extract and write the validated extractor output is dumped to
+{storage_root}/documents/{document_id}/parsed.json (best-effort, mirrors rnd's
+parsed.json) so prod extraction can be diffed against rnd and graph-vs-extraction
+errors can be isolated.
 
 Design decisions:
   D-01: Status D-01 minimal set: processing set at start, written on success.
@@ -20,12 +24,14 @@ Security (T-07-04): error text is truncated to 2000 chars before storage.
 """
 
 import asyncio
+from pathlib import Path
 
 from loguru import logger
 
 from core.config import get_settings
 from core.database.graph import GraphDB
 from core.extractor.llm import Extractor
+from core.extractor.schema import ExtractedCandidate
 from core.parser.pdf import PdfParser
 from core.pipeline.celery_app import celery_app
 from core.pipeline.status import (
@@ -38,6 +44,31 @@ from core.writer.graph_writer import GraphWriter
 
 # Maximum length for stored error text (T-07-04: bounds storage, no api_key in path)
 _MAX_ERROR_LEN = 2000
+
+
+def _save_parsed(doc_dir: Path, candidate: ExtractedCandidate) -> None:
+    """Best-effort dump of the validated extractor output to {doc_dir}/parsed.json.
+
+    This is the resume-shaped JSON that feeds the GraphWriter — the prod analog of
+    rnd's parsed.json. Saved BEFORE the graph write so the artifact survives even if
+    the write stage later fails. Keeps nulls (no exclude_none) and non-ASCII as-is so
+    Cyrillic stays readable, matching the rnd dumps.
+
+    Never raises: a debugging artifact must not break or fail-stage the pipeline. The
+    candidate is already in memory and will be written regardless of disk outcome.
+    """
+    try:
+        doc_dir.mkdir(parents=True, exist_ok=True)
+        out_path = doc_dir / "parsed.json"
+        out_path.write_text(
+            candidate.model_dump_json(indent=2),
+            encoding="utf-8",
+        )
+        logger.info("pipeline: parsed saved path={}", out_path)
+    except Exception as exc:
+        logger.warning(
+            "pipeline: could not save parsed.json dir={}: {}", doc_dir, exc
+        )
 
 
 async def _record_failure(
@@ -133,6 +164,14 @@ async def _run(document_id: str) -> None:
             logger.error("pipeline: extract FAILED doc_id={} error={}", document_id, exc)
             await _record_failure(db, document_id, exc, "extract")
             raise
+
+        # Step 4.5: Persist the parsed extraction output BEFORE the graph write.
+        # Mirrors the rnd parsed.json artifact (rnd/src/run.py) so prod output can be
+        # diffed against rnd and the graph-vs-extraction error source can be isolated:
+        # if parsed.json is already wrong -> extractor/LLM; if it's correct but the
+        # graph is wrong -> GraphWriter. Best-effort: a debug artifact must NEVER block
+        # or fail the pipeline (the candidate is already in memory and will still be written).
+        _save_parsed(settings.storage_root / "documents" / document_id, candidate)
 
         # Step 5: Write to graph
         # GraphWriter has graceful degradation (silent return on no-db) but we have

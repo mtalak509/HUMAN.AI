@@ -2,19 +2,22 @@
 
 Turns an ExtractedCandidate into a full candidate graph in Neo4j.
 
-Responsibilities (plan 06-02):
+Responsibilities (plan 06-02; graph refactor 2026-06-21):
   - Deterministic ID derivation (D-01): sha1 of fixed field strings
   - Skill union + strip-only dedup (D-04/D-05): top-level ∪ skills_mentioned
-  - Fact provenance (D-02/D-03): Fact per unique skill + per experience
   - USED_SKILL edge (D-06): Experience→Skill for skills_mentioned
+  - Institution as a shared node (AT_INSTITUTION), mirroring Company
+  - Provenance via Candidate-[:SOURCED_FROM]->Document (model_version +
+    extracted_at on the edge) — the reified Fact layer was removed (overhead in
+    the 1:1 world; returns with entity resolution in v1.2)
   - Single write transaction for atomicity (execute_write)
   - Graceful degradation (T-06-07): is_connected guard, no crash on Neo4j outage
 
 Security (T-06-04): ONLY binds params to pre-audited cypher.py constants.
                     Never builds Cypher strings.
-Security (T-06-05): Fact.model_version = candidate.model_version (caller-stamped).
-                    confidence = None (D-02, never invented).
-Security (T-06-06): EXTRACTED_FROM links to Document by id (provenance audit trail).
+Security (T-06-05): SOURCED_FROM.model_version = candidate.model_version
+                    (caller-stamped, never the LLM).
+Security (T-06-06): SOURCED_FROM links Candidate to Document by id (audit trail).
 """
 
 import datetime as dt
@@ -26,24 +29,20 @@ from core.config import Settings, get_settings
 from core.database.graph import GraphDB
 from core.extractor.schema import ExtractedCandidate
 from core.writer.cypher import (
-    LINK_AS_ROLE,
     LINK_AT_COMPANY,
-    LINK_EXTRACTED_FROM,
+    LINK_AT_INSTITUTION,
     LINK_HAS_CONTACT,
     LINK_HAS_EDUCATION,
     LINK_HAS_EXPERIENCE,
-    LINK_HAS_FACT,
     LINK_HAS_SKILL,
-    LINK_SUPPORTS_EXPERIENCE,
-    LINK_SUPPORTS_SKILL,
+    LINK_SOURCED_FROM,
     LINK_USED_SKILL,
     MERGE_CANDIDATE,
     MERGE_COMPANY,
     MERGE_CONTACT,
     MERGE_EDUCATION,
     MERGE_EXPERIENCE,
-    MERGE_FACT,
-    MERGE_ROLE,
+    MERGE_INSTITUTION,
     MERGE_SKILL,
 )
 
@@ -82,10 +81,24 @@ class GraphWriter:
         ).hexdigest()
 
     @staticmethod
-    def _education_id(document_id: str, institution: str, from_date: str | None) -> str:
-        """sha1(document_id|institution|from_date) — deterministic, 40-char hex."""
+    def _education_id(
+        document_id: str,
+        institution: str,
+        degree: str,
+        field: str,
+        from_date: str | None,
+        to_date: str | None,
+    ) -> str:
+        """sha1(document_id|institution|degree|field|from_date|to_date) — 40-char hex.
+
+        degree + field + to_date are part of the key (not just institution +
+        from_date) so multiple degrees from the same institution with no
+        enrollment date — e.g. bachelor's + master's + a refresher course all at
+        one university, all with from_date=None — derive DISTINCT ids instead of
+        collapsing onto one MERGE node (the WR-01 rationale, applied to Education).
+        """
         return hashlib.sha1(
-            f"{document_id}|{institution}|{from_date}".encode()
+            f"{document_id}|{institution}|{degree}|{field}|{from_date}|{to_date}".encode()
         ).hexdigest()
 
     @staticmethod
@@ -93,13 +106,6 @@ class GraphWriter:
         """sha1(document_id|type|value) — deterministic, 40-char hex."""
         return hashlib.sha1(
             f"{document_id}|{type_}|{value}".encode()
-        ).hexdigest()
-
-    @staticmethod
-    def _fact_id(document_id: str, predicate: str, value: str) -> str:
-        """sha1(document_id|predicate|value) — deterministic, 40-char hex."""
-        return hashlib.sha1(
-            f"{document_id}|{predicate}|{value}".encode()
         ).hexdigest()
 
     # ------------------------------------------------------------------
@@ -147,11 +153,11 @@ class GraphWriter:
         1. Candidate node
         2. Contacts (nodes + edges)
         3. Skills (nodes + edges) — full union D-04/D-05
-        4. Experiences (nodes + company/role/edges + USED_SKILL)
-        5. Education (nodes + edges)
-        6. Fact provenance (one per unique skill + one per experience)
+        4. Experiences (nodes + company/edges + USED_SKILL)
+        5. Education (nodes + Institution node/edges)
+        6. Provenance edge (Candidate-[:SOURCED_FROM]->Document)
         """
-        document_id = candidate_id  # same value; alias for clarity in Fact links
+        document_id = candidate_id  # same value; alias for clarity in provenance link
 
         # Timestamp stamped once per transaction (mirrors pdf.py line 175)
         now = dt.datetime.now(dt.UTC).isoformat()
@@ -219,12 +225,14 @@ class GraphWriter:
         # 4. Experiences
         # ------------------------------------------------------------------
         for exp, exp_id, company, role in processed_exps:
-            # Nodes
+            # Nodes — role is now a property on Experience (no shared Role node);
+            # description is persisted for the semantic-search layer (v1.2+).
             await tx.run(MERGE_COMPANY, name=company, industry=None)
-            await tx.run(MERGE_ROLE, title=role, seniority=None)
             await tx.run(
                 MERGE_EXPERIENCE,
                 id=exp_id,
+                role=role,
+                description=exp.description,
                 from_date=exp.from_date,
                 to_date=exp.to_date,
                 is_current=exp.is_current,
@@ -233,7 +241,6 @@ class GraphWriter:
             # Edges
             await tx.run(LINK_HAS_EXPERIENCE, c_id=candidate_id, e_id=exp_id)
             await tx.run(LINK_AT_COMPANY, e_id=exp_id, name=company)
-            await tx.run(LINK_AS_ROLE, e_id=exp_id, title=role)
 
             # USED_SKILL edges (D-06): skills_mentioned in this role
             for s in exp.skills_mentioned:
@@ -242,14 +249,20 @@ class GraphWriter:
                     await tx.run(LINK_USED_SKILL, e_id=exp_id, name=s)
 
         # ------------------------------------------------------------------
-        # 5. Education
+        # 5. Education (+ shared Institution node, mirroring Company)
         # ------------------------------------------------------------------
         for edu in candidate.education:
-            edu_id = self._education_id(document_id, edu.institution, edu.from_date)
+            edu_id = self._education_id(
+                document_id,
+                edu.institution,
+                edu.degree,
+                edu.field,
+                edu.from_date,
+                edu.to_date,
+            )
             await tx.run(
                 MERGE_EDUCATION,
                 id=edu_id,
-                institution=edu.institution,
                 degree=edu.degree,
                 field=edu.field,
                 from_date=edu.from_date,
@@ -257,44 +270,25 @@ class GraphWriter:
             )
             await tx.run(LINK_HAS_EDUCATION, c_id=candidate_id, ed_id=edu_id)
 
-        # ------------------------------------------------------------------
-        # 6. Fact provenance (D-03/D-07)
-        # ------------------------------------------------------------------
+            # Institution is a shared node ("find graduates of X" = traversal).
+            # Skip the link when the institution name is blank after strip —
+            # same guard rationale as blank company/role (no garbage "" node).
+            institution = edu.institution.strip() if edu.institution else ""
+            if institution:
+                await tx.run(MERGE_INSTITUTION, name=institution)
+                await tx.run(LINK_AT_INSTITUTION, ed_id=edu_id, name=institution)
 
-        # One Fact per UNIQUE skill (D-07): predicate="has_skill", SUPPORTS→Skill
-        for skill in skills:
-            f_id = self._fact_id(document_id, "has_skill", skill)
-            await tx.run(
-                MERGE_FACT,
-                id=f_id,
-                predicate="has_skill",
-                value=skill,
-                confidence=None,          # D-02: null, never a float
-                model_version=candidate.model_version,
-                is_current=True,
-                extracted_at=now,
-            )
-            await tx.run(LINK_HAS_FACT, c_id=candidate_id, f_id=f_id)
-            await tx.run(LINK_EXTRACTED_FROM, f_id=f_id, d_id=document_id)
-            await tx.run(LINK_SUPPORTS_SKILL, f_id=f_id, name=skill)
-
-        # One Fact per experience (D-03): predicate="worked_at", SUPPORTS→Experience.
-        # WR-01: the Fact id is keyed on exp_id (company|role|from_date), NOT on the
-        # company name alone — otherwise two experiences at the same company collide
-        # into one Fact node that supports two experiences with overwritten props.
-        # Fact.value stays the human-readable company name for queryability.
-        for exp, exp_id, company, role in processed_exps:
-            f_id = self._fact_id(document_id, "worked_at", exp_id)
-            await tx.run(
-                MERGE_FACT,
-                id=f_id,
-                predicate="worked_at",
-                value=company,
-                confidence=None,          # D-02: null, never a float
-                model_version=candidate.model_version,
-                is_current=True,
-                extracted_at=now,
-            )
-            await tx.run(LINK_HAS_FACT, c_id=candidate_id, f_id=f_id)
-            await tx.run(LINK_EXTRACTED_FROM, f_id=f_id, d_id=document_id)
-            await tx.run(LINK_SUPPORTS_EXPERIENCE, f_id=f_id, e_id=exp_id)
+        # ------------------------------------------------------------------
+        # 6. Provenance edge: Candidate-[:SOURCED_FROM]->Document
+        # Replaces the reified Fact layer in the 1:1 world. Extraction metadata
+        # (model_version, extracted_at) is stamped on the edge — it describes the
+        # extraction event, not the person. T-06-05: model_version is the
+        # caller-stamped value on the candidate, never produced by the LLM.
+        # ------------------------------------------------------------------
+        await tx.run(
+            LINK_SOURCED_FROM,
+            c_id=candidate_id,
+            d_id=document_id,
+            model_version=candidate.model_version,
+            extracted_at=now,
+        )

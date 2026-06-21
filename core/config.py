@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+import os
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -41,7 +42,7 @@ class Settings(BaseSettings):
 
     # LLM extractor config (Phase 5)
     extractor_model: str = Field(
-        default="qwen/qwen3.6-plus",
+        default="z-ai/glm-5.2",
         description="OpenRouter model id for the LLM extractor; env EXTRACTOR_MODEL",
     )
     openrouter_base_url: str = Field(

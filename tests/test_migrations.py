@@ -34,7 +34,7 @@ async def test_apply_all_smoke(graph_db: GraphDB) -> None:
 
     names = await _show_constraint_names(graph_db)
     assert "candidate_id_unique" in names
-    assert "fact_id_unique" in names
+    assert "institution_name_unique" in names
 
 
 async def test_apply_all_idempotent(graph_db: GraphDB) -> None:
@@ -60,5 +60,5 @@ async def test_apply_all_degraded_is_noop(settings: Settings) -> None:
     await MigrationManager(db).apply_all()
 
     assert db.is_connected is False
-    assert len(CONSTRAINTS) == 12
-    assert len(INDEXES) == 5  # +document_processing_status_idx (Phase 7, 07-01)
+    assert len(CONSTRAINTS) == 11  # 12 − Fact − Role + Institution (refactor 2026-06-21)
+    assert len(INDEXES) == 3  # 5 − fact_predicate_idx − fact_is_current_idx (refactor 2026-06-21)
